@@ -10,19 +10,12 @@ import net.minecraft.util.ChatComponentText;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class KeyCommand implements ICommand {
 
-	private final List<String> aliases;
-
-	public KeyCommand() {
-		this.aliases = new ArrayList<String>();
-		aliases.add("st");
-		aliases.add("sk");
-		aliases.add("settoken");
-		aliases.add("setjojogrinderkey"); // JUST IN CASE others clash
-	}
+	private final List<String> aliases = new ArrayList<>(Arrays.asList("st", "sk", "settoken", "setjojogrinderkey"));
 
 	@Override
 	public String getCommandName() {
@@ -51,9 +44,9 @@ public class KeyCommand implements ICommand {
 			return;
 		}
 
-		GrindBot.apiKey = args[0];
+		JojoAPI.setApiKey(args[0]);
 		Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentText("Set key successfully!"));
-		System.out.println("set key from command to " + GrindBot.apiKey);
+		System.out.println("set key from command to " + JojoAPI.apiKey());
 		
 		try {
 			FileWriter myWriter = new FileWriter("key.txt");
