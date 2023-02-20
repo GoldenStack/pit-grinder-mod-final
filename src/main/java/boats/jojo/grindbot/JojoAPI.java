@@ -28,6 +28,8 @@ public class JojoAPI {
 	public static final String API_URL = "https://pit-grinder-logic-api-jlrw3.ondigitalocean.app/";
 //    public static final String API_URL = "http://127.0.0.1:5000/"; // Testing URL
 
+	public static final String API_VERSION = "1.0.0";
+
 	// Sorted roughly from best to worst
 	private static final ImmutableList<String> CHECKED_PATHS = ImmutableList.of("key.txt", "key.txt.txt", "key", "token.txt", "token.txt.txt", "token");
 
@@ -80,6 +82,8 @@ public class JojoAPI {
 		JsonObject data = new JsonObject();
 
 		data.addProperty("grinder_auth", JojoAPI.apiKey());
+		data.addProperty("grinder_api_version", API_VERSION);
+
 		data.addProperty("client_username", player.getName());
 		data.addProperty("health", player.getHealth());
 		data.addProperty("experience_level", player.experienceLevel);
