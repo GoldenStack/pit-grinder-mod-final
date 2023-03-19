@@ -633,7 +633,7 @@ public class GrindBot
 		
 		// done, set client info header
 		
-		String infoStrEnc = new String(infoStr.getBytes(), StandardCharsets.UTF_8);
+		String infoStrEnc = new String(infoStr.getBytes(), StandardCharsets.UTF_8).replaceAll("\n", "");
 		
 		System.out.println("api info header length is " + infoStrEnc.length() + " chars");
 		
