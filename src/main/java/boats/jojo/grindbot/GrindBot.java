@@ -1,8 +1,9 @@
 package boats.jojo.grindbot;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.zip.DataFormatException;
@@ -28,7 +29,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.io.IOException;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.passive.EntityVillager;
@@ -58,15 +58,15 @@ import net.minecraftforge.fml.common.gameevent.InputEvent;
 public class GrindBot {
 	private static final Logger LOGGER = LogManager.getLogger();
 
-	static Base64.Encoder base64encoder = Base64.getEncoder();
-	static Base64.Decoder base64decoder = Base64.getDecoder();
+	public static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
+	public static final Base64.Decoder BASE64_DECODER = Base64.getDecoder();
 
-	static String apiKey = "null";
+	public static final String API_URL = "https://pit-grinder-logic-api-jlrw3.ondigitalocean.app/api/grinder";
+	//public static final String API_URL = "http://127.0.0.1:5000/api/grinder"; // testing url
+
+	static String apiKey;
 	
 	Minecraft mcInstance = Minecraft.getMinecraft();
-	
-	String apiUrl = "https://pit-grinder-logic-api-jlrw3.ondigitalocean.app/api/grinder";
-	//String apiUrl = "http://127.0.0.1:5000/api/grinder"; // testing url
 
 	boolean loggingEnabled = false;
 	
@@ -228,8 +228,7 @@ public class GrindBot {
 			if (mcInstance.gameSettings.keyBindUseItem.isKeyDown()) { // Mouse2
 				drawText("RM", keyboardPosX + 20, keyboardPosY + 4, color);
 			}
-		}
-		catch(Exception e){
+		} catch(Exception e){
 			e.printStackTrace();
 		}
 
@@ -264,9 +263,7 @@ public class GrindBot {
 	@SubscribeEvent
 	public void onChat(ClientChatReceivedEvent event) {
 		String curChatRaw = StringUtils.stripControlCodes(event.message.getUnformattedText());
-		
-		curChatRaw = new String(curChatRaw.getBytes(), StandardCharsets.UTF_8); // probably unnecessary
-		
+
 		// idk what the first thing is for `!curChatRaw.startsWith(":")`
 		if (!curChatRaw.startsWith(":") && (curChatRaw.startsWith("MAJOR EVENT!") || curChatRaw.startsWith("BOUNTY CLAIMED!") || curChatRaw.startsWith("NIGHT QUEST!") || curChatRaw.startsWith("QUICK MATHS!") || curChatRaw.startsWith("DONE!") || curChatRaw.startsWith("MINOR EVENT!") || curChatRaw.startsWith("MYSTIC ITEM!") || curChatRaw.startsWith("PIT LEVEL UP!") || curChatRaw.startsWith("A player has"))) {
 			importantChatMsg = curChatRaw;
@@ -326,7 +323,7 @@ public class GrindBot {
 					mouseMove();
 				}
 				Key.doMovement(this);
-			}  else {
+			} else {
 				Key.unpressAll();
 			}
 			
@@ -346,46 +343,45 @@ public class GrindBot {
 					mcInstance.thePlayer.inventory.currentItem = 5;
 				}
 			}
-		}
-		catch(Exception e) {
+		} catch(Exception e) {
 			e.printStackTrace();
 		}
 	}
 
 	public void reloadKey() {
-		String curPossibleKeyFileName = "key.txt";
-		if (new File(curPossibleKeyFileName).isFile()) {
-			// key file found, read it
-			try (FileInputStream inputStream = new FileInputStream(curPossibleKeyFileName)) {
-				System.out.println("set key");
+		Path file = Paths.get("key.txt");
 
-				apiKey = IOUtils.toString(inputStream);
-
-				return;
-			} catch (IOException e) {
-				System.out.println("reading key error");
-				apiMessage = "error reading key";
-				e.printStackTrace();
-			}
+		if (!Files.isRegularFile(file)) {
+			apiMessage = "no key file found";
+			return;
 		}
 
-		apiMessage = "no key file found";
+		try {
+			System.out.println("set key");
+
+			apiKey = String.join("\n", Files.readAllLines(file));
+		} catch (IOException exception) {
+			System.out.println("reading key error");
+			exception.printStackTrace();
+
+			apiMessage = "error reading key";
+		}
 	}
 	
 	public void callBotApi() {
 		// set key from file if unset
-		if (apiKey.equals("null")) {
+		if (apiKey == null) {
 			reloadKey();
 		}
 
 		// return if key is still null - no key was read so no point calling API
-		if (apiKey.equals("null")) {
+		if (apiKey == null) {
 			return;
 		}
 
 		EntityPlayerSP player = mcInstance.thePlayer;
 		
-		makeLog("getting api url: " + apiUrl);
+		makeLog("getting api url: " + API_URL);
 		
 		preApiProcessingTime = System.currentTimeMillis();
 		
@@ -620,7 +616,7 @@ public class GrindBot {
 		long preApiGotTime = System.currentTimeMillis();
 
 		ForkJoinPool.commonPool().execute(() -> {
-			HttpGet get = new HttpGet(apiUrl);
+			HttpGet get = new HttpGet(API_URL);
 
 			int timeoutMs = 5000;
 			RequestConfig requestConfig = RequestConfig.custom()
@@ -832,11 +828,6 @@ public class GrindBot {
 		
 		makeLog("total processing time was " + apiLastTotalProcessingTime + "ms");
 	}
-	
-	public void doAttack() {
-		KeyBinding.onTick(mcInstance.gameSettings.keyBindAttack.getKeyCode());
-		attackedThisTick = true;
-	}
 
 	public void goAfk() {
 		mouseVelX = 0;
@@ -846,14 +837,10 @@ public class GrindBot {
 	}
 	
 	public double[] getPlayerPos(String playerName) { // weird
-		List<EntityPlayer> playerList = mcInstance.theWorld.playerEntities;
-		List<EntityPlayer> playerToGet = playerList.stream().filter(pl -> pl.getName().equals(playerName)).collect(Collectors.toList());
-		if(playerToGet.size()>0) {
-			Entity foundPlayer = playerToGet.get(0);
-			
-			return new double[] {foundPlayer.getPosition().getX(), foundPlayer.getPosition().getY(), foundPlayer.getPosition().getZ()};
-		}
-		else {
+		EntityPlayer player = mcInstance.theWorld.getPlayerEntityByName(playerName);
+		if (player != null) {
+			return new double[] {player.getPosition().getX(), player.getPosition().getY(), player.getPosition().getZ()};
+		}  else {
 			System.out.println("could not find player");
 			return new double[] {0, 999, 0};
 		}
@@ -999,7 +986,7 @@ public class GrindBot {
 		byte[] compressedData = new byte[compressedLength];
 		System.arraycopy(compressedBytes, 0, compressedData, 0, compressedLength);
 
-		String compressedString = base64encoder.encodeToString(compressedData);
+		String compressedString = BASE64_ENCODER.encodeToString(compressedData);
 
 		double compressionRatio = (double) compressedString.length() / inputBytes.length;
 
@@ -1011,7 +998,7 @@ public class GrindBot {
 	}
 
 	public static String decompressString(String compressedString) {
-		byte[] compressedBytes = base64decoder.decode(compressedString);
+		byte[] compressedBytes = BASE64_DECODER.decode(compressedString);
 
 		Inflater inflater = new Inflater();
 		inflater.setInput(compressedBytes);

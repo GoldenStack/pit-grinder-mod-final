@@ -53,7 +53,8 @@ public enum Key {
         }
 
         if (bot.autoClickerEnabled && Math.random() < bot.keyAttackChance) {
-            bot.doAttack();
+            KeyBinding.onTick(Minecraft.getMinecraft().gameSettings.keyBindAttack.getKeyCode());
+            bot.attackedThisTick = true;
         }
     }
 
