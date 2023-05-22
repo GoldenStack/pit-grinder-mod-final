@@ -98,27 +98,9 @@ public class GrindBot {
 	
 	List<String> chatMsgs = new ArrayList<>();
 	String importantChatMsg = "";
-	
-	double keyChanceForwardDown = 0; // make good
-	double keyChanceForwardUp = 0;
-	
-	double keyChanceSideDown = 0;
-	double keyChanceSideUp = 0;
-	
-	double keyChanceBackwardDown = 0;
-	double keyChanceBackwardUp = 0;
-	
-	double keyChanceJumpDown = 0;
-	double keyChanceJumpUp = 0;
-	
-	double keyChanceCrouchDown = 0;
-	double keyChanceCrouchUp = 0;
-	
-	double keyChanceSprintDown = 0;
-	double keyChanceSprintUp = 0;
-	
-	double keyChanceUseDown = 0;
-	double keyChanceUseUp = 0;
+
+	Map<Key, Double> keyUpChances = new HashMap<>();
+	Map<Key, Double> keyDownChances = new HashMap<>();
 	
 	double keyAttackChance = 0;
 
@@ -161,7 +143,7 @@ public class GrindBot {
 				initialFov = mcInstance.gameSettings.fovSetting;
 				chatMsgs.clear(); // reset list of chat messages to avoid picking up ones received earlier
 			} else { // newly disabled
-				allKeysUp();
+				Key.unpressAll();
 				mcInstance.gameSettings.fovSetting = initialFov;
 			}
 			
@@ -310,7 +292,7 @@ public class GrindBot {
 			long timeSinceReceivedApiResponse = System.currentTimeMillis() - lastReceivedApiResponse;
 			
 			if (timeSinceReceivedApiResponse > 3000) {
-				allKeysUp();
+				Key.unpressAll();
 
 				if (Math.floor(timeSinceReceivedApiResponse / 50) % 20 == 0) {
 					goAfk();
@@ -343,10 +325,9 @@ public class GrindBot {
 				if (mouseTargetX != 0 || mouseTargetY != 0 || mouseTargetZ != 0) { // dumb null check
 					mouseMove();
 				}
-				doMovementKeys();
-			}
-			else {
-				allKeysUp();
+				Key.doMovement(this);
+			}  else {
+				Key.unpressAll();
 			}
 			
 			if (mcInstance.thePlayer.posY > curSpawnLevel - 4 && !curTargetName.equals("null") && !farFromMid()) {
@@ -358,8 +339,8 @@ public class GrindBot {
 				mouseTargetX = 0;
 				mouseTargetY = curSpawnLevel - 4;
 				mouseTargetZ = 0;
-				
-				allKeysUp();
+
+				Key.unpressAll();
 
 				if (!autoClickerEnabled) { // only needs to switch away from sword if an external KA is enabled
 					mcInstance.thePlayer.inventory.currentItem = 5;
@@ -725,36 +706,36 @@ public class GrindBot {
 		}
 		
 		if (!apiStringSplit[3].equals("null")) {
-			String[] keyChancesStringSplit = apiStringSplit[3].split(":::");
+			String[] chances = apiStringSplit[3].split(":::");
 			
-			if (keyChancesStringSplit.length != 15) {
+			if (chances.length != 15) {
 				makeLog("key chances string split wrong length");
 				apiMessage = "api key chances failed";
 				return;
 			}
+
+			keyDownChances.put(Key.FORWARD, Double.parseDouble(chances[0]));
+			keyUpChances.put(Key.FORWARD, Double.parseDouble(chances[1]));
+
+			keyDownChances.put(Key.SIDE, Double.parseDouble(chances[2]));
+			keyUpChances.put(Key.SIDE, Double.parseDouble(chances[3]));
+
+			keyDownChances.put(Key.BACKWARD, Double.parseDouble(chances[4]));
+			keyUpChances.put(Key.BACKWARD, Double.parseDouble(chances[5]));
+
+			keyDownChances.put(Key.JUMP, Double.parseDouble(chances[6]));
+			keyUpChances.put(Key.JUMP, Double.parseDouble(chances[7]));
+
+			keyDownChances.put(Key.CROUCH, Double.parseDouble(chances[8]));
+			keyUpChances.put(Key.CROUCH, Double.parseDouble(chances[9]));
+
+			keyDownChances.put(Key.SPRINT, Double.parseDouble(chances[10]));
+			keyUpChances.put(Key.SPRINT, Double.parseDouble(chances[11]));
+
+			keyDownChances.put(Key.USE, Double.parseDouble(chances[12]));
+			keyUpChances.put(Key.USE, Double.parseDouble(chances[13]));
 			
-			keyChanceForwardDown = Double.parseDouble(keyChancesStringSplit[0]);
-			keyChanceForwardUp = Double.parseDouble(keyChancesStringSplit[1]);
-			
-			keyChanceSideDown = Double.parseDouble(keyChancesStringSplit[2]);
-			keyChanceSideUp = Double.parseDouble(keyChancesStringSplit[3]);
-			
-			keyChanceBackwardDown = Double.parseDouble(keyChancesStringSplit[4]);
-			keyChanceBackwardUp = Double.parseDouble(keyChancesStringSplit[5]);
-			
-			keyChanceJumpDown = Double.parseDouble(keyChancesStringSplit[6]);
-			keyChanceJumpUp = Double.parseDouble(keyChancesStringSplit[7]);
-			
-			keyChanceCrouchDown = Double.parseDouble(keyChancesStringSplit[8]);
-			keyChanceCrouchUp = Double.parseDouble(keyChancesStringSplit[9]);
-			
-			keyChanceSprintDown = Double.parseDouble(keyChancesStringSplit[10]);
-			keyChanceSprintUp = Double.parseDouble(keyChancesStringSplit[11]);
-			
-			keyChanceUseDown = Double.parseDouble(keyChancesStringSplit[12]);
-			keyChanceUseUp = Double.parseDouble(keyChancesStringSplit[13]);
-			
-			keyAttackChance = Double.parseDouble(keyChancesStringSplit[14]);
+			keyAttackChance = Double.parseDouble(chances[14]);
 		}
 		
 		mouseTargetX = 0;
@@ -769,7 +750,7 @@ public class GrindBot {
 		}
 		
 		if (!apiStringSplit[5].equals("null")) {
-			allKeysUp();
+			Key.unpressAll();
 			
 			int containerItemToPress = Integer.parseInt(apiStringSplit[5]);
 			
@@ -779,7 +760,7 @@ public class GrindBot {
 		}
 		
 		if (!apiStringSplit[6].equals("null")) {
-			allKeysUp();
+			Key.unpressAll();
 			
 			int inventoryItemToDrop = Integer.parseInt(apiStringSplit[6]);
 			
@@ -789,7 +770,7 @@ public class GrindBot {
 		}
 		
 		if (!apiStringSplit[7].equals("null")) {
-			allKeysUp();
+			Key.unpressAll();
 			
 			int inventoryItemToMove = Integer.parseInt(apiStringSplit[7]);
 			
@@ -811,7 +792,7 @@ public class GrindBot {
 		}
 		
 		if (!apiStringSplit[11].equals("null")) {
-			allKeysUp();
+			Key.unpressAll();
 			
 			if (apiStringSplit[11].equals("true")) {
 				mcInstance.currentScreen = null;
@@ -819,10 +800,10 @@ public class GrindBot {
 		}
 		
 		if (!apiStringSplit[12].equals("null")) {
-			allKeysUp();
+			Key.unpressAll();
 			
 			if (apiStringSplit[12].equals("true")) {
-				pressInventoryKeyIfNoGuiOpen();
+				Key.pressInventoryKeyIfNoGuiOpen();
 			}
 		}
 		
@@ -841,8 +822,8 @@ public class GrindBot {
 		if (!apiStringSplit[16].equals("null")) {
 			if (apiStringSplit[16].equals("true")) {
 				grinderEnabled = false;
-				allKeysUp();
-				pressInventoryKeyIfNoGuiOpen();
+				Key.unpressAll();
+				Key.pressInventoryKeyIfNoGuiOpen();
 			}
 		}
 		
@@ -850,70 +831,6 @@ public class GrindBot {
 		apiLastTotalProcessingTime = (int) (System.currentTimeMillis() - preApiProcessingTime);
 		
 		makeLog("total processing time was " + apiLastTotalProcessingTime + "ms");
-	}
-	
-	public void doMovementKeys() { // so long
-		if (Math.random() <= keyChanceForwardUp) {
-			setKeyUp(1);
-		}
-		if (Math.random() <= keyChanceForwardDown) {
-			setKeyDown(1);
-		}
-		
-		if (Math.random() <= keyChanceBackwardUp) {
-			setKeyUp(2);
-		}
-		if (Math.random() <= keyChanceBackwardDown) {
-			setKeyDown(2);
-		}
-		
-		if (Math.random() <= keyChanceSideUp) {
-			setKeyUp(3);
-		}
-		if (Math.random() <= keyChanceSideDown) {
-			setKeyDown(3);
-		}
-		
-		if (Math.random() <= keyChanceSideUp) {
-			setKeyUp(4);
-		}
-		if (Math.random() <= keyChanceSideDown) {
-			setKeyDown(4);
-		}
-		
-		if (Math.random() <= keyChanceJumpUp) {
-			setKeyUp(5);
-		}
-		if (Math.random() <= keyChanceJumpDown) {
-			setKeyDown(5);
-		}
-		
-		if (Math.random() <= keyChanceCrouchUp) {
-			setKeyUp(6);
-		}
-		if (Math.random() <= keyChanceCrouchDown) {
-			setKeyDown(6);
-		}
-		
-		if (Math.random() <= keyChanceSprintUp) {
-			setKeyUp(7);
-		}
-		if (Math.random() <= keyChanceSprintDown) {
-			setKeyDown(7);
-		}
-		
-		if (Math.random() <= keyChanceUseUp) {
-			setKeyUp(9);
-		}
-		if (Math.random() <= keyChanceUseDown) {
-			setKeyDown(9);
-		}
-		
-		if (Math.random() <= keyAttackChance) {
-			if (autoClickerEnabled) {
-				doAttack();
-			}
-		}
 	}
 	
 	public void doAttack() {
@@ -924,26 +841,8 @@ public class GrindBot {
 	public void goAfk() {
 		mouseVelX = 0;
 		mouseVelY = 0;
-		allKeysUp();
-		pressChatKeyIfNoGuiOpen();
-	}
-
-	public void pressInventoryKeyIfNoGuiOpen() {
-		if (mcInstance.currentScreen == null) {
-			KeyBinding.onTick(mcInstance.gameSettings.keyBindInventory.getKeyCode());
-		}
-	}
-
-	public void pressChatKeyIfNoGuiOpen() {
-		if (mcInstance.currentScreen == null) {
-			KeyBinding.onTick(mcInstance.gameSettings.keyBindChat.getKeyCode());
-		}
-	}
-	
-	public void allKeysUp() {
-		for (int i = 1; i <= 9; i++) {
-			setKeyUp(i);
-		}
+		Key.unpressAll();
+		Key.pressChatKeyIfNoGuiOpen();
 	}
 	
 	public double[] getPlayerPos(String playerName) { // weird
@@ -957,21 +856,6 @@ public class GrindBot {
 		else {
 			System.out.println("could not find player");
 			return new double[] {0, 999, 0};
-		}
-	}
-
-	public void setKeyDown(int whichKey) {
-		Minecraft mc = Minecraft.getMinecraft();
-		if(whichKey >= 1 && whichKey <= 9) {
-			KeyBinding[] keysList = {mc.gameSettings.keyBindForward, mc.gameSettings.keyBindBack, mc.gameSettings.keyBindLeft, mc.gameSettings.keyBindRight, mc.gameSettings.keyBindJump, mc.gameSettings.keyBindSneak, mc.gameSettings.keyBindSprint, mc.gameSettings.keyBindAttack, mc.gameSettings.keyBindUseItem};
-			KeyBinding.setKeyBindState(keysList[whichKey-1].getKeyCode(), true);
-		}
-	}
-	public void setKeyUp(int whichKey) {
-		Minecraft mc = Minecraft.getMinecraft();
-		if(whichKey >= 1 && whichKey <= 9) {
-			KeyBinding[] keysList = {mc.gameSettings.keyBindForward, mc.gameSettings.keyBindBack, mc.gameSettings.keyBindLeft, mc.gameSettings.keyBindRight, mc.gameSettings.keyBindJump, mc.gameSettings.keyBindSneak, mc.gameSettings.keyBindSprint, mc.gameSettings.keyBindAttack, mc.gameSettings.keyBindUseItem};
-			KeyBinding.setKeyBindState(keysList[whichKey-1].getKeyCode(), false);
 		}
 	}
 	
