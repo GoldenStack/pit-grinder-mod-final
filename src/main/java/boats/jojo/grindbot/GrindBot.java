@@ -27,13 +27,11 @@ import org.lwjgl.opengl.Display;
 
 import java.util.Arrays;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
 import java.io.IOException;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.block.Block;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
@@ -105,10 +103,6 @@ public class GrindBot
 	float initialFov = 120;
 	float fovWhenGrinding = 120;
 	
-	double curTargetX = 0;
-	double curTargetY = 0;
-	double curTargetZ = 0;
-	
 	double curSpawnLevel = 999;
 	
 	long lastCalledApi = 0;
@@ -119,7 +113,7 @@ public class GrindBot
 	
 	long lastTickTime = 0;
 	
-	List<String> chatMsgs = new ArrayList<String>();
+	List<String> chatMsgs = new ArrayList<>();
 	String importantChatMsg = "";
 	
 	double keyChanceForwardDown = 0; // make good
@@ -172,8 +166,7 @@ public class GrindBot
 			if (grinderEnabled) { // newly enabled
 				initialFov = mcInstance.gameSettings.fovSetting;
 				chatMsgs.clear(); // reset list of chat messages to avoid picking up ones received earlier
-			}
-			else if (!grinderEnabled) { // newly disabled
+			} else { // newly disabled
 				allKeysUp();
 				mcInstance.gameSettings.fovSetting = initialFov;
 			}
@@ -398,26 +391,21 @@ public class GrindBot
 		String[] possibleKeyFileNames = {"key.txt", "key.txt.txt", "key", "token.txt", "token.txt.txt", "token"}; // from best to worst...
 
 		boolean foundKeyFile = false;
-		
-		for(int i = 0; i < possibleKeyFileNames.length; i++){
-			String curPossibleKeyFileName = possibleKeyFileNames[i];
-			
+
+		for (String curPossibleKeyFileName : possibleKeyFileNames) {
 			File potentialKeyFile = new File(curPossibleKeyFileName);
-			
+
 			if (potentialKeyFile.isFile()) {
 				// key file found, read it
-				try(FileInputStream inputStream = new FileInputStream(curPossibleKeyFileName)) {	 
-					String fileKey = IOUtils.toString(inputStream);
-					
-					apiKey = fileKey;
-					
+				try (FileInputStream inputStream = new FileInputStream(curPossibleKeyFileName)) {
+					apiKey = IOUtils.toString(inputStream);
+
 					System.out.println("set key");
-					
+
 					foundKeyFile = true;
-					
+
 					break; // only breaks if reading key file didn't error
-				}
-				catch(Exception e) {
+				} catch (Exception e) {
 					System.out.println("reading key error");
 					apiMessage = "error reading key";
 					e.printStackTrace();
@@ -700,7 +688,7 @@ public class GrindBot
 
 					try { // i am scared of it not working with some blocks
 						String blockName = mcInstance.theWorld.getBlockState(new BlockPos(x, y, z)).getBlock().getRegistryName();
-						blockChar = blockChars.getOrDefault(blockName, '.').charValue();
+						blockChar = blockChars.getOrDefault(blockName, '.');
 					} catch (Exception e) {
 						e.printStackTrace();
 						proximityBlocksStr += '.';
@@ -1168,10 +1156,7 @@ public class GrindBot
 	}
 	
 	public boolean farFromMid() {
-		if(mcInstance.thePlayer.posX > 32 || mcInstance.thePlayer.posZ > 32) {
-			return true;
-		}
-		return false;
+		return mcInstance.thePlayer.posX > 32 || mcInstance.thePlayer.posZ > 32;
 	}
 
 	public double timeSinWave(double div) { // little odd

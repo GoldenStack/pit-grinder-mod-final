@@ -6,6 +6,7 @@ import net.minecraft.command.ICommand;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.ChatComponentText;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -17,7 +18,7 @@ public class KeyCommand implements ICommand {
 	private final List<String> aliases;
 
 	public KeyCommand() {
-		this.aliases = new ArrayList<String>();
+		this.aliases = new ArrayList<>();
 		aliases.add("st");
 		aliases.add("sk");
 		aliases.add("settoken");
@@ -82,7 +83,7 @@ public class KeyCommand implements ICommand {
 	}
 
 	@Override
-	public int compareTo(ICommand o) {
+	public int compareTo(@NotNull ICommand o) {
 		return 0;
 	}
 }
