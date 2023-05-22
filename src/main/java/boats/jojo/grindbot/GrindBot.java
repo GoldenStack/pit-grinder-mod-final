@@ -85,9 +85,7 @@ public class GrindBot
 	
 	float curFps = 0;
 	
-	double mouseTargetX = 0;
-	double mouseTargetY = 0;
-	double mouseTargetZ = 0;
+	double mouseTargetX, mouseTargetY, mouseTargetZ;
 	
 	boolean attackedThisTick = false;
 	
@@ -189,10 +187,7 @@ public class GrindBot
 	public void overlayFunc(RenderGameOverlayEvent.Post event) {
 		long curTime = System.currentTimeMillis();
 		try { // rendering GUI stuff, super low importance so errors don't matter
-			if (event.type == ElementType.HEALTH) { // these mess with the order or something
-				return;
-			}
-			if (event.type == ElementType.ARMOR) {
+			if (event.type == ElementType.HEALTH || event.type == ElementType.ARMOR) { // these mess with the order or something
 				return;
 			}
 
@@ -502,25 +497,16 @@ public class GrindBot
 			String intraPlayerSeparator = ":::";
 			
 			EntityPlayer curPlayer = playerList.get(i);
-			
-			String curPlayerUsername = curPlayer.getName();
-			
-			BlockPos curPlayerPosition = curPlayer.getPosition();
-			double curPlayerPositionX = curPlayerPosition.getX();
-			double curPlayerPositionY = curPlayerPosition.getY();
-			double curPlayerPositionZ = curPlayerPosition.getZ();
-			
-			float curPlayerHealth = curPlayer.getHealth();
-			
-			int curPlayerArmor = curPlayer.getTotalArmorValue();
-			
+
+			BlockPos curPos = curPlayer.getPosition();
+
 			String curPlayerStr = "";
-			curPlayerStr += curPlayerUsername + intraPlayerSeparator;
-			curPlayerStr += curPlayerPositionX + intraPlayerSeparator;
-			curPlayerStr += curPlayerPositionY + intraPlayerSeparator;
-			curPlayerStr += curPlayerPositionZ + intraPlayerSeparator;
-			curPlayerStr += curPlayerHealth + intraPlayerSeparator;
-			curPlayerStr += curPlayerArmor + intraPlayerSeparator;
+			curPlayerStr += curPlayer.getName() + intraPlayerSeparator;
+			curPlayerStr += (double) curPos.getX() + intraPlayerSeparator;
+			curPlayerStr += (double) curPos.getY() + intraPlayerSeparator;
+			curPlayerStr += (double) curPos.getZ() + intraPlayerSeparator;
+			curPlayerStr += curPlayer.getHealth() + intraPlayerSeparator;
+			curPlayerStr += curPlayer.getTotalArmorValue() + intraPlayerSeparator;
 			
 			playersStr += curPlayerStr + playerSeparator;
 		}
@@ -1033,15 +1019,9 @@ public class GrindBot
 	}
 	
 	public void allKeysUp() {
-		setKeyUp(1);
-		setKeyUp(2);
-		setKeyUp(3);
-		setKeyUp(4);
-		setKeyUp(5);
-		setKeyUp(6);
-		setKeyUp(7);
-		setKeyUp(8);
-		setKeyUp(9);
+		for (int i = 1; i <= 9; i++) {
+			setKeyUp(i);
+		}
 	}
 	
 	public double[] getPlayerPos(String playerName) { // weird
@@ -1255,14 +1235,7 @@ public class GrindBot
 	}
 
 	public boolean onHypixel() {
-		String currentServerIp = mcInstance.getCurrentServerData().serverIP;
-		if (currentServerIp == null) {
-			return false;
-		}
-		if (currentServerIp.equals("hypixel.net")) {
-			return true;
-		}
-		return false;
+		return "hypixel.net".equals(mcInstance.getCurrentServerData().serverIP);
 	}
 
 	public void setWindowTitle() {
