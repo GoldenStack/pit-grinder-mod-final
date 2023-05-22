@@ -3,15 +3,14 @@ package boats.jojo.grindbot;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.*;
 import java.util.stream.Collectors;
-import java.util.Base64;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 import java.io.ByteArrayOutputStream;
-import java.util.HashMap;
-import java.util.Map;
 
+import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import org.apache.commons.io.IOUtils;
@@ -25,9 +24,6 @@ import org.apache.http.impl.client.HttpClients;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.Display;
 
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ForkJoinPool;
 import java.io.IOException;
 
@@ -423,292 +419,236 @@ public class GrindBot
 		if (apiKey.equals("null")) {
 			return;
 		}
+
+		EntityPlayerSP player = mcInstance.thePlayer;
 		
 		makeLog("getting api url: " + apiUrl);
 		
 		preApiProcessingTime = System.currentTimeMillis();
 		
 		// construct client info string
-		
-		String infoStr = "";
+
 		String dataSeparator = "##!##";
-		
-		// auth key
-		
-		infoStr += apiKey + dataSeparator;
-		
-		// client username
-		
-		infoStr += mcInstance.thePlayer.getName() + dataSeparator;
-		
-		// client uuid
-		
-		infoStr += EntityPlayer.getUUID(mcInstance.thePlayer.getGameProfile()) + dataSeparator;
-		
-		// client position + viewing angles
-		
-		String positionAnglesStr = "";
-		String positionAnglesSeparator = ":::";
-		
-		positionAnglesStr += mcInstance.thePlayer.posX + positionAnglesSeparator;
-		positionAnglesStr += mcInstance.thePlayer.posY + positionAnglesSeparator;
-		positionAnglesStr += mcInstance.thePlayer.posZ + positionAnglesSeparator;
-		positionAnglesStr += mcInstance.thePlayer.rotationPitch + positionAnglesSeparator;
-		positionAnglesStr += mcInstance.thePlayer.rotationYaw + positionAnglesSeparator;
-		
-		infoStr += positionAnglesStr + dataSeparator;
-		
-		// client inventory
-		String invStr = "";
-		String invStrSeparator = "!!!";
-		
-		for(int i = 0; i < mcInstance.thePlayer.inventoryContainer.getInventory().size(); i++){
-			ItemStack curItem = mcInstance.thePlayer.inventoryContainer.getInventory().get(i);
-			
-			String curItemName = "air";
-			int curItemStackSize = 0;
-			
-			if (curItem != null) {
-				curItemName = curItem.getItem().getRegistryName().split(":")[1];
-				curItemStackSize = curItem.stackSize;
-			}
-			
-			invStr += curItemName + ":::" + curItemStackSize + invStrSeparator;
-		}
-		
-		infoStr += invStr + dataSeparator;
-		
-		// players
-			
-		List<EntityPlayer> playerList = mcInstance.theWorld.playerEntities;
-		
-		playerList = playerList
-				  .stream()
-				  .filter(player -> !player.isInvisible())
-				  .collect(Collectors.toList());
+		StringJoiner info = new StringJoiner(dataSeparator);
 
-		// format:
-		// !!!username:::x:::y:::z:::health:::armor!!!
-		
-		String playersStr = "";
-		String playerSeparator = "!!!";
-		
-		for(int i = 0; i < Math.min(128, playerList.size()); i++){
-			String intraPlayerSeparator = ":::";
-			
-			EntityPlayer curPlayer = playerList.get(i);
+		info.add(apiKey); // Auth key
 
-			BlockPos curPos = curPlayer.getPosition();
+		info.add(player.getName()); // Client username
 
-			String curPlayerStr = "";
-			curPlayerStr += curPlayer.getName() + intraPlayerSeparator;
-			curPlayerStr += (double) curPos.getX() + intraPlayerSeparator;
-			curPlayerStr += (double) curPos.getY() + intraPlayerSeparator;
-			curPlayerStr += (double) curPos.getZ() + intraPlayerSeparator;
-			curPlayerStr += curPlayer.getHealth() + intraPlayerSeparator;
-			curPlayerStr += curPlayer.getTotalArmorValue() + intraPlayerSeparator;
-			
-			playersStr += curPlayerStr + playerSeparator;
-		}
-		
-		infoStr += playersStr + dataSeparator;
-		
-		// middle block
-		
-		String middleBlockname = "null";
-		try {
-			middleBlockname = mcInstance.theWorld.getBlockState(new BlockPos(0, (int) mcInstance.thePlayer.posY - 1, 0)).getBlock().getRegistryName().split(":")[1];
-		}
-		catch(Exception e) {
-			e.printStackTrace();
-		}
-		
-		infoStr += middleBlockname + dataSeparator;
-		
-		// last chat message
+		info.add(player.getGameProfile().getId().toString()); // Client UUID - will be null when in offline mode, but Hypixel is online
 
-		String chatMsgSeparator = "!#!";
-		String chatMsgsStr = "";
+		{ // Client position and rotation
+			String positionAnglesStr = player.posX + ":::" + player.posY + ":::" + player.posZ + ":::" +
+							player.rotationPitch + ":::" + player.rotationYaw + ":::";
 
-		for(int i = 0; i < Math.min(32, chatMsgs.size()); i++) {
-			chatMsgsStr += chatMsgs.get(i).replaceAll(dataSeparator, "").replaceAll(chatMsgSeparator, "") + chatMsgSeparator;
+			info.add(positionAnglesStr);
 		}
 
-		chatMsgs.clear();
+		{ // Client inventory
+			String invStr = "";
+			String invStrSeparator = "!!!";
 
-		infoStr += chatMsgsStr + dataSeparator;
-		
-		// container items
-		
-		String containerStr = "null";
-		
-		List<ItemStack> containerItems = mcInstance.thePlayer.openContainer.getInventory();
-		
-		if (containerItems.size() > 46) { // check if a container is open (definitely a better way to do that)
-			containerStr = "";
-			String containerStrSeparator = "!!!";
-			for(int i = 0; i < containerItems.size() - 36; i++){ // minus 36 to cut off inventory
-				ItemStack curItem = containerItems.get(i);
-				
-				String curItemName = "air";
-				String curItemDisplayName = "air";
-				int curItemStackSize = 0;
-				
-				if (curItem != null) {
-					curItemName = curItem.getItem().getRegistryName().split(":")[1];
-					curItemStackSize = curItem.stackSize;
-					curItemDisplayName = curItem.getDisplayName();
+			for (ItemStack item : player.inventoryContainer.getInventory()) {
+				if (item == null) {
+					invStr += "air" + ":::" + 0 + invStrSeparator;
+				} else {
+					invStr += item.getItem().getRegistryName().split(":")[1] + ":::" + item.stackSize + invStrSeparator;
 				}
-				
-				containerStr += curItemName + ":::" + curItemDisplayName + ":::" + curItemStackSize + containerStrSeparator;
 			}
-		}
-		
-		infoStr += containerStr + dataSeparator;
-		
-		// dropped items
-		
-		String droppedItemsStr = "";
-		String droppedItemsSeparator = "!!!";
-		
-		List<EntityItem> droppedItems = mcInstance.theWorld.getEntitiesWithinAABB(EntityItem.class, new AxisAlignedBB(new BlockPos(mcInstance.thePlayer.posX - 32, mcInstance.thePlayer.posY - 4, mcInstance.thePlayer.posZ - 32), new BlockPos(mcInstance.thePlayer.posX + 32, mcInstance.thePlayer.posY + 32, mcInstance.thePlayer.posZ + 32)));
-		
-		for(int i = 0; i < Math.min(128, droppedItems.size()); i++){
-			EntityItem curItem = droppedItems.get(i);
-			
-			String curItemName = curItem.getEntityItem().getItem().getRegistryName().split(":")[1];
-			
-			double curItemPositionX = curItem.getPosition().getX();
-			double curItemPositionY = curItem.getPosition().getY();
-			double curItemPositionZ = curItem.getPosition().getZ();
-			
-			droppedItemsStr += curItemName + ":::" + curItemPositionX + ":::" + curItemPositionY + ":::" + curItemPositionZ + droppedItemsSeparator;
-		}
-		
-		infoStr += droppedItemsStr + dataSeparator;
-		
-		// important chat msg
-		
-		if (!importantChatMsg.equals("")) {
-			infoStr += importantChatMsg + dataSeparator;
-			importantChatMsg = "";
-		}
-		else {
-			infoStr += "null" + dataSeparator;
-		}
-		
-		// current open gui
-		
-		String curOpenGui = "null";
-		if (mcInstance.currentScreen != null) {
-			curOpenGui = mcInstance.currentScreen.getClass().toString();
-		}
-		
-		infoStr += curOpenGui + dataSeparator;
-		
-		// villager positions
-		
-		String villagersStr = "";
-		String villagersSeparator = "!!!";
-		
-		List<Entity> allEntities = mcInstance.theWorld.getLoadedEntityList();
-		
-		List<Entity> villagerEntities = allEntities.stream().filter(entity -> entity.getClass().equals(EntityVillager.class)).collect(Collectors.toList());
-	
-		for(int i = 0; i < Math.min(8, villagerEntities.size()); i++){
-			Entity curVillager = villagerEntities.get(i);
-			
-			double curVillagerPositionX = curVillager.getPosition().getX();
-			double curVillagerPositionY = curVillager.getPosition().getY();
-			double curVillagerPositionZ = curVillager.getPosition().getZ();
-			
-			villagersStr += curVillagerPositionX + ":::" + curVillagerPositionY + ":::" + curVillagerPositionZ + villagersSeparator;
-		}
-		
-		infoStr += villagersStr + dataSeparator;
-		
-		// client health
-		
-		infoStr += mcInstance.thePlayer.getHealth() + dataSeparator;
-		
-		// client xp level
-		
-		infoStr += mcInstance.thePlayer.experienceLevel + dataSeparator;
 
-		// mod version
-
-		String modVersion = null;
-		ModContainer modContainer = Loader.instance().getIndexedModList().get("keystrokesmod");
-		if (modContainer != null) {
-			modVersion = modContainer.getVersion();
+			info.add(invStr);
 		}
 
-		infoStr += modVersion + dataSeparator;
+		{ // Players
+			List<EntityPlayer> playerList = mcInstance.theWorld.playerEntities.stream()
+					.filter(user -> !user.isInvisible())
+					.limit(128)
+					.collect(Collectors.toList());
 
-		// blocks proximity player
+			// format:
+			// !!!username:::x:::y:::z:::health:::armor!!!
 
-		String proximityBlocksStr = "";
+			String playersStr = "";
+			String playerSeparator = "!!!";
 
-		int proximityBlocksHorizontalRange = 8;
-		int proximityBlocksVerticalRange = 2;
-		int playerPosX = (int) mcInstance.thePlayer.posX;
-		int playerPosY = (int) mcInstance.thePlayer.posY;
-		int playerPosZ = (int) mcInstance.thePlayer.posZ;
+			for (EntityPlayer entityPlayer : playerList) {
+				String intraPlayerSeparator = ":::";
 
-		for (int x = playerPosX - proximityBlocksHorizontalRange; x <= playerPosX + proximityBlocksHorizontalRange; x++) {
-			for (int y = playerPosY - proximityBlocksVerticalRange; y <= playerPosY + proximityBlocksVerticalRange; y++) {
-				for (int z = playerPosZ - proximityBlocksHorizontalRange; z <= playerPosZ + proximityBlocksHorizontalRange; z++) {
+				BlockPos curPos = entityPlayer.getPosition();
 
-					Map<String, Character> blockChars = new HashMap<>();
-					blockChars.put("minecraft:air", '0');
-					blockChars.put("minecraft:obsidian", 'o');
-					blockChars.put("minecraft:glass", 'g');
-					blockChars.put("minecraft:slime", 's');
-					blockChars.put("minecraft:enchanting_table", 'e');
-					blockChars.put("minecraft:ender_chest", 'c');
-					blockChars.put("minecraft:sea_lantern", 'l');
-					blockChars.put("minecraft:carpet", 'r');
-					blockChars.put("char '.' is reserved for other blocks or error, do not use", '.');
+				String curPlayerStr = "";
+				curPlayerStr += entityPlayer.getName() + intraPlayerSeparator;
+				curPlayerStr += (double) curPos.getX() + intraPlayerSeparator;
+				curPlayerStr += (double) curPos.getY() + intraPlayerSeparator;
+				curPlayerStr += (double) curPos.getZ() + intraPlayerSeparator;
+				curPlayerStr += entityPlayer.getHealth() + intraPlayerSeparator;
+				curPlayerStr += entityPlayer.getTotalArmorValue() + intraPlayerSeparator;
 
-					char blockChar;
+				playersStr += curPlayerStr + playerSeparator;
+			}
 
-					try { // i am scared of it not working with some blocks
-						String blockName = mcInstance.theWorld.getBlockState(new BlockPos(x, y, z)).getBlock().getRegistryName();
-						blockChar = blockChars.getOrDefault(blockName, '.');
-					} catch (Exception e) {
-						e.printStackTrace();
-						proximityBlocksStr += '.';
-						continue;
+			info.add(playersStr);
+		}
+
+		{ // Middle block
+			String middleBlockname = "null";
+			try {
+				middleBlockname = mcInstance.theWorld.getBlockState(new BlockPos(0, (int) mcInstance.thePlayer.posY - 1, 0)).getBlock().getRegistryName().split(":")[1];
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+			info.add(middleBlockname);
+		}
+
+		{ // Last chat message
+			String chatMsgSeparator = "!#!";
+			String chatMsgsStr = "";
+
+			for (int i = 0; i < Math.min(32, chatMsgs.size()); i++) {
+				chatMsgsStr += chatMsgs.get(i).replaceAll(dataSeparator, "").replaceAll(chatMsgSeparator, "") + chatMsgSeparator;
+			}
+
+			chatMsgs.clear();
+
+			info.add(chatMsgsStr);
+		}
+
+		{ // Container items
+			String containerStr = "null";
+
+			List<ItemStack> containerItems = mcInstance.thePlayer.openContainer.getInventory();
+
+			if (containerItems.size() > 46) { // check if a container is open (definitely a better way to do that)
+				containerStr = "";
+				String containerStrSeparator = "!!!";
+				for (int i = 0; i < containerItems.size() - 36; i++) { // minus 36 to cut off inventory
+					ItemStack curItem = containerItems.get(i);
+
+					String curItemName = "air";
+					String curItemDisplayName = "air";
+					int curItemStackSize = 0;
+
+					if (curItem != null) {
+						curItemName = curItem.getItem().getRegistryName().split(":")[1];
+						curItemStackSize = curItem.stackSize;
+						curItemDisplayName = curItem.getDisplayName();
 					}
 
-					proximityBlocksStr += blockChar;
+					containerStr += curItemName + ":::" + curItemDisplayName + ":::" + curItemStackSize + containerStrSeparator;
 				}
 			}
+
+			info.add(containerStr);
 		}
 
-		infoStr += proximityBlocksStr + dataSeparator;
+		{ // Dropped items
+			String droppedItemsStr = "";
+			String droppedItemsSeparator = "!!!";
 
-		// ping
+			List<EntityItem> droppedItems = mcInstance.theWorld.getEntitiesWithinAABB(EntityItem.class, new AxisAlignedBB(new BlockPos(mcInstance.thePlayer.posX - 32, mcInstance.thePlayer.posY - 4, mcInstance.thePlayer.posZ - 32), new BlockPos(mcInstance.thePlayer.posX + 32, mcInstance.thePlayer.posY + 32, mcInstance.thePlayer.posZ + 32)));
 
-		infoStr += apiLastPing + dataSeparator;
+			for (int i = 0; i < Math.min(128, droppedItems.size()); i++) {
+				EntityItem curItem = droppedItems.get(i);
 
-		// replace newlines because they mess with the header
+				String curItemName = curItem.getEntityItem().getItem().getRegistryName().split(":")[1];
 
-		infoStr = infoStr.replaceAll("\n", " ");
+				double curItemPositionX = curItem.getPosition().getX();
+				double curItemPositionY = curItem.getPosition().getY();
+				double curItemPositionZ = curItem.getPosition().getZ();
 
-		// compress
+				droppedItemsStr += curItemName + ":::" + curItemPositionX + ":::" + curItemPositionY + ":::" + curItemPositionZ + droppedItemsSeparator;
+			}
 
-		infoStr = compressString(infoStr);
+			info.add(droppedItemsStr);
+		}
+		
+		// Important chat message
+		info.add(importantChatMsg.equals("") ? "null" : importantChatMsg);
+		importantChatMsg = "";
+		
+		// Current open GUI
+		info.add(mcInstance.currentScreen == null ? "null" : mcInstance.currentScreen.getClass().toString());
 
-		// add "this is compressed" tag to support API version compatibility
+		{ // Villager positions
+			String villagersStr = "";
+			String villagersSeparator = "!!!";
 
-		infoStr += "xyzcompressed";
+			List<Entity> villagerEntities = mcInstance.theWorld.getLoadedEntityList()
+					.stream().filter(entity -> entity.getClass().equals(EntityVillager.class)).collect(Collectors.toList());
+
+			for (int i = 0; i < Math.min(8, villagerEntities.size()); i++) {
+				Entity villager = villagerEntities.get(i);
+
+				villagersStr += (double) villager.getPosition().getX() + ":::" +
+						(double) villager.getPosition().getY() + ":::" +
+						(double) villager.getPosition().getZ() + villagersSeparator;
+			}
+
+			info.add(villagersStr);
+		}
+
+		info.add(String.valueOf(player.getHealth())); // Client health
+
+		info.add(String.valueOf(player.experienceLevel)); // Client XP level
+
+		// Mod version
+		ModContainer modContainer = Loader.instance().getIndexedModList().get("keystrokesmod");
+		info.add(modContainer == null ? null : modContainer.getVersion());
+
+		{ // Blocks proximity player
+			String proximityBlocksStr = "";
+
+			int proximityBlocksHorizontalRange = 8;
+			int proximityBlocksVerticalRange = 2;
+			int playerPosX = (int) mcInstance.thePlayer.posX;
+			int playerPosY = (int) mcInstance.thePlayer.posY;
+			int playerPosZ = (int) mcInstance.thePlayer.posZ;
+
+			for (int x = playerPosX - proximityBlocksHorizontalRange; x <= playerPosX + proximityBlocksHorizontalRange; x++) {
+				for (int y = playerPosY - proximityBlocksVerticalRange; y <= playerPosY + proximityBlocksVerticalRange; y++) {
+					for (int z = playerPosZ - proximityBlocksHorizontalRange; z <= playerPosZ + proximityBlocksHorizontalRange; z++) {
+
+						Map<String, Character> blockChars = new HashMap<>();
+						blockChars.put("minecraft:air", '0');
+						blockChars.put("minecraft:obsidian", 'o');
+						blockChars.put("minecraft:glass", 'g');
+						blockChars.put("minecraft:slime", 's');
+						blockChars.put("minecraft:enchanting_table", 'e');
+						blockChars.put("minecraft:ender_chest", 'c');
+						blockChars.put("minecraft:sea_lantern", 'l');
+						blockChars.put("minecraft:carpet", 'r');
+						blockChars.put("char '.' is reserved for other blocks or error, do not use", '.');
+
+						char blockChar;
+
+						try { // i am scared of it not working with some blocks
+							String blockName = mcInstance.theWorld.getBlockState(new BlockPos(x, y, z)).getBlock().getRegistryName();
+							blockChar = blockChars.getOrDefault(blockName, '.');
+						} catch (Exception e) {
+							e.printStackTrace();
+							proximityBlocksStr += '.';
+							continue;
+						}
+
+						proximityBlocksStr += blockChar;
+					}
+				}
+			}
+
+			info.add(proximityBlocksStr);
+		}
+
+		info.add(String.valueOf(apiLastPing)); // Ping
+
+		// Build string and replace newlines because they apparently mess with the header
+		String builtInfo = info.toString().replaceAll("\n", " ");
+
+		// Compress and add "this is compressed" tag to support API version compatibility
+		String finalBuiltInfo = compressString(builtInfo) + "xyzcompressed";
 		
 		// done, set client info header
-		
-		String infoStrEnc = new String(infoStr.getBytes(), StandardCharsets.UTF_8);
-		
-		makeLog("api info header length is " + infoStrEnc.length() + " chars");
+		makeLog("api info header length is " + finalBuiltInfo.length() + " chars");
 		
 		// do request
 		
@@ -727,7 +667,7 @@ public class GrindBot
 					.build();
 
 			get.setConfig(requestConfig);
-			get.setHeader("clientinfo", infoStrEnc);
+			get.setHeader("clientinfo", finalBuiltInfo);
 
 			String apiResponse;
 			try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
