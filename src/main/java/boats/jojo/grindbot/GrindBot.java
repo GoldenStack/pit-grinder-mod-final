@@ -55,22 +55,13 @@ import net.minecraftforge.fml.common.gameevent.InputEvent;
 		version = "1.13",
 		acceptedMinecraftVersions = "1.8.9"
 )
-public class GrindBot
-{
-	@EventHandler
-	public void init(FMLInitializationEvent event) {
-		MinecraftForge.EVENT_BUS.register(this);
-		ClientCommandHandler.instance.registerCommand(new KeyCommand());
-	}
-	@EventHandler
-	public void serverLoad(FMLServerStartingEvent event) {
-		event.registerServerCommand(new KeyCommand());
-	}
-	
+public class GrindBot {
 	private static final Logger LOGGER = LogManager.getLogger();
 
 	static Base64.Encoder base64encoder = Base64.getEncoder();
 	static Base64.Decoder base64decoder = Base64.getDecoder();
+
+	static String apiKey = "null";
 	
 	Minecraft mcInstance = Minecraft.getMinecraft();
 	
@@ -87,8 +78,6 @@ public class GrindBot
 	
 	String curTargetName = "null";
 	String[] nextTargetNames = null;
-	
-	static String apiKey = "null";
 	
 	int minimumFps = 0;
 	
@@ -147,6 +136,17 @@ public class GrindBot
 
 	double mouseVelX, mouseVelY;
 	long lastMouseUpdate;
+
+	@EventHandler
+	public void init(FMLInitializationEvent event) {
+		MinecraftForge.EVENT_BUS.register(this);
+		ClientCommandHandler.instance.registerCommand(new KeyCommand());
+	}
+
+	@EventHandler
+	public void serverLoad(FMLServerStartingEvent event) {
+		event.registerServerCommand(new KeyCommand());
+	}
 
 	@SubscribeEvent
 	public void onKeyPress(InputEvent.KeyInputEvent event) {
