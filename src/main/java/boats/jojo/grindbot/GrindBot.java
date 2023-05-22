@@ -372,34 +372,23 @@ public class GrindBot {
 	}
 
 	public void reloadKey() {
-		String[] possibleKeyFileNames = {"key.txt", "key.txt.txt", "key", "token.txt", "token.txt.txt", "token"}; // from best to worst...
+		String curPossibleKeyFileName = "key.txt";
+		if (new File(curPossibleKeyFileName).isFile()) {
+			// key file found, read it
+			try (FileInputStream inputStream = new FileInputStream(curPossibleKeyFileName)) {
+				System.out.println("set key");
 
-		boolean foundKeyFile = false;
+				apiKey = IOUtils.toString(inputStream);
 
-		for (String curPossibleKeyFileName : possibleKeyFileNames) {
-			File potentialKeyFile = new File(curPossibleKeyFileName);
-
-			if (potentialKeyFile.isFile()) {
-				// key file found, read it
-				try (FileInputStream inputStream = new FileInputStream(curPossibleKeyFileName)) {
-					apiKey = IOUtils.toString(inputStream);
-
-					System.out.println("set key");
-
-					foundKeyFile = true;
-
-					break; // only breaks if reading key file didn't error
-				} catch (Exception e) {
-					System.out.println("reading key error");
-					apiMessage = "error reading key";
-					e.printStackTrace();
-				}
+				return;
+			} catch (IOException e) {
+				System.out.println("reading key error");
+				apiMessage = "error reading key";
+				e.printStackTrace();
 			}
 		}
-		
-		if (!foundKeyFile) {
-			apiMessage = "no key file found";
-		}
+
+		apiMessage = "no key file found";
 	}
 	
 	public void callBotApi() {
