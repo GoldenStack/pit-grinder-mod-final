@@ -847,7 +847,7 @@ public class GrindBot {
 	}
 	
 	public void drawText(String text, float x, float y, int col) {
-		mcInstance.fontRendererObj.drawStringWithShadow(text, x, y, 0xffffff);
+		mcInstance.fontRendererObj.drawStringWithShadow(text, x, y, col);
 	}
 
 	public void interpolateMousePosition() {
