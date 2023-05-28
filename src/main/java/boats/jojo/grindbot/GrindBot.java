@@ -1,8 +1,5 @@
 package boats.jojo.grindbot;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
 import net.minecraftforge.client.ClientCommandHandler;
@@ -15,6 +12,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.jetbrains.annotations.NotNull;
 import org.lwjgl.input.Keyboard;
 
 import java.util.concurrent.ForkJoinPool;
@@ -92,6 +90,10 @@ public class GrindBot {
 
 	double mouseVelX, mouseVelY;
 	long lastMouseUpdate;
+
+	public void setApiMessage(@NotNull String newMessage) {
+		this.apiMessage = newMessage;
+	}
 
 	@EventHandler
 	public void init(FMLInitializationEvent event) {
@@ -321,31 +323,11 @@ public class GrindBot {
 			e.printStackTrace();
 		}
 	}
-
-	public void reloadKey() {
-		Path file = Paths.get("key.txt");
-
-		if (!Files.isRegularFile(file)) {
-			apiMessage = "No key file found!";
-			return;
-		}
-
-		try {
-			LOGGER.debug("Loaded key from file");
-
-			GrinderAPI.setApiKey(String.join("\n", Files.readAllLines(file)));
-		} catch (IOException exception) {
-			LOGGER.error("Error reading key from file " + file + "\"!");
-			exception.printStackTrace();
-
-			apiMessage = "Error reading key from file!";
-		}
-	}
 	
 	public void callBotApi() {
 		// set key from file if unset
 		if (!GrinderAPI.hasApiKey()) {
-			reloadKey();
+			GrinderAPI.reloadKey(this);
 		}
 
 		// return if key is still null - no key was read so no point calling API

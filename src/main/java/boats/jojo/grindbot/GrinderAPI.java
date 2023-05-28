@@ -14,6 +14,10 @@ import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.ModContainer;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -34,6 +38,25 @@ public class GrinderAPI {
 
     public static void setApiKey(@NotNull String apiKey) {
         API_KEY = apiKey;
+    }
+
+    public static void reloadKey(@NotNull GrindBot bot) {
+        Path file = Paths.get("key.txt");
+
+        if (!Files.isRegularFile(file)) {
+            bot.setApiMessage("No key file found!");
+            return;
+        }
+
+        try {
+            GrindBot.LOGGER.debug("Loaded key from file");
+
+            GrinderAPI.setApiKey(String.join("\n", Files.readAllLines(file)));
+        } catch (IOException exception) {
+            GrindBot.LOGGER.error("Error reading key from file " + file + "\"!", exception);
+
+            bot.setApiMessage("Error reading key from file!");
+        }
     }
 
     public static @NotNull String buildPayload(@NotNull GrindBot bot) {
