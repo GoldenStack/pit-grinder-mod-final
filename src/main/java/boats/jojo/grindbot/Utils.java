@@ -66,7 +66,7 @@ public class Utils {
         double compressionRatio = (double) compressedString.length() / inputBytes.length;
 
         if (compressionRatio > 1) {
-            System.out.println("compression ratio NOT GOOD: " + compressionRatio);
+            GrindBot.LOGGER.warn("compression ratio NOT GOOD: " + compressionRatio);
         }
 
         return compressedString;
