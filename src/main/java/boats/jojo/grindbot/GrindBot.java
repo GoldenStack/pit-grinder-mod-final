@@ -1,14 +1,9 @@
 package boats.jojo.grindbot;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.zip.DataFormatException;
-import java.util.zip.Deflater;
-import java.util.zip.Inflater;
-import java.io.ByteArrayOutputStream;
 
 import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
@@ -20,9 +15,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.jetbrains.annotations.NotNull;
 import org.lwjgl.input.Keyboard;
-import org.lwjgl.opengl.Display;
 
 import java.util.concurrent.ForkJoinPool;
 import java.io.IOException;
@@ -48,14 +41,11 @@ import net.minecraftforge.fml.common.gameevent.InputEvent;
 )
 public class GrindBot {
 	private static final Logger LOGGER = LogManager.getLogger();
-
-	public static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
-	public static final Base64.Decoder BASE64_DECODER = Base64.getDecoder();
 	
 	Minecraft mcInstance = Minecraft.getMinecraft();
 
 	boolean loggingEnabled = false;
-	
+
 	float curFps = 0;
 	
 	double mouseTargetX, mouseTargetY, mouseTargetZ;
@@ -144,7 +134,7 @@ public class GrindBot {
 			lastToggledAutoClicker = curTime;
 		}
 
-		setWindowTitle(); // putting this here is probably often enough idk can put it elsewhere later
+		Utils.setWindowTitle(); // putting this here is probably often enough idk can put it elsewhere later
 	}
 	
 	@SubscribeEvent
@@ -224,7 +214,7 @@ public class GrindBot {
 		// bot tick handling
 		long tickTimeDiff = curTime - lastTickTime;
 
-		if (grinderEnabled && onHypixel()
+		if (grinderEnabled && Utils.onHypixel()
 			&& curTime - (lastReceivedApiResponse - apiLastTotalProcessingTime) >= 1000 // 1000ms per api call
 			&& curTime - lastCalledApi >= 500 // absolute minimum time to avoid spamming before any responses received
 		) {
@@ -377,7 +367,7 @@ public class GrindBot {
 		importantChatMsg = "";
 
 		// Compress and add "this is compressed" tag to support API version compatibility
-		String finalBuiltInfo = compressString(builtInfo) + "xyzcompressed";
+		String finalBuiltInfo = Utils.compressString(builtInfo) + "xyzcompressed";
 		
 		// done, set client info header
 		makeLog("api info header length is " + finalBuiltInfo.length() + " chars");
@@ -447,7 +437,7 @@ public class GrindBot {
 
 		// now decompress
 
-		apiText = decompressString(apiText);
+		apiText = Utils.decompressString(apiText);
 
 		// deal with given instructions
 
@@ -656,7 +646,7 @@ public class GrindBot {
 		double headHeight = 1.62;
 
 		// old af math probably stupid
-		double targetRotY = fixRotY(360 - Math.toDegrees(Math.atan2(mouseTargetX - x, mouseTargetZ - z)));
+		double targetRotY = Utils.fixRotY(360 - Math.toDegrees(Math.atan2(mouseTargetX - x, mouseTargetZ - z)));
 		double targetRotX = -Math.toDegrees(Math.atan(
 				(mouseTargetY - y - headHeight) / Math.hypot(mouseTargetX - x, mouseTargetZ - z)
 		));
@@ -665,8 +655,8 @@ public class GrindBot {
 		targetRotY += timeSinWave(310) * 2 + timeSinWave(500) * 2 + timeSinWave(260) * 2;
 		targetRotX += timeSinWave(290) * 2 + timeSinWave(490) * 2 + timeSinWave(270) * 2;
 		
-		targetRotY = fixRotY(targetRotY);
-		targetRotX = fixRotX(targetRotX);
+		targetRotY = Utils.fixRotY(targetRotY);
+		targetRotX = Utils.fixRotX(targetRotX);
 		
 		// calculate mouse speed
 		double timeNoise = timeSinWave(40)  * 2 +
@@ -677,10 +667,10 @@ public class GrindBot {
 
 		double mouseCurSpeed = mouseSpeed + timeNoise;
 
-		currentYaw = (float) fixRotY(currentYaw);
+		currentYaw = (float) Utils.fixRotY(currentYaw);
 		
 		double diffRotX = targetRotX - currentPitch;
-		double diffRotY = range180(targetRotY - currentYaw);
+		double diffRotY = Utils.range180(targetRotY - currentYaw);
 		
 		double rotAng = Math.atan2(diffRotY, diffRotX) + Math.PI;
 		
@@ -704,107 +694,18 @@ public class GrindBot {
 		return mcInstance.thePlayer.posX > 32 || mcInstance.thePlayer.posZ > 32;
 	}
 
-	public double timeSinWave(double div) { // little odd
-		double num = System.currentTimeMillis() / div * 100.0D;
-		num %= 360.0D;
-		num = Math.toRadians(num);
-		num = Math.sin(num);
-		return num;
-	}
-
-	public double range180(double rot) {
-		rot = rot % 360;
-		if (rot > 180) {
-			rot -= 360;
-		}
-		return rot;
-	}
-	
-	public double fixRotY(double rotY) {
-		rotY = rotY % 360;
-		while (rotY < 0) {
-			rotY = rotY + 360;
-		}
-		return rotY;
-	}
-	
-	public double fixRotX(double rotX) {
-		if(rotX > 90) {
-			rotX = 90;
-		}
-		if(rotX < -90) {
-			rotX = -90;
-		}
-		return rotX;
-	}
-
 	public void makeLog(String logStr) {
 		if (loggingEnabled) {
 			System.out.println(logStr);
 		}
 	}
 
-	public static String compressString(String inputString) {
-		byte[] inputBytes = inputString.getBytes(StandardCharsets.UTF_8);
-
-		Deflater deflater = new Deflater();
-		deflater.setInput(inputBytes);
-		deflater.finish();
-
-		byte[] compressedBytes = new byte[inputBytes.length];
-		int compressedLength = deflater.deflate(compressedBytes);
-		deflater.end();
-
-		byte[] compressedData = new byte[compressedLength];
-		System.arraycopy(compressedBytes, 0, compressedData, 0, compressedLength);
-
-		String compressedString = BASE64_ENCODER.encodeToString(compressedData);
-
-		double compressionRatio = (double) compressedString.length() / inputBytes.length;
-
-		if (compressionRatio > 1) {
-			System.out.println("compression ratio NOT GOOD: " + compressionRatio);
-		}
-
-		return compressedString;
-	}
-
-	public static String decompressString(String compressedString) {
-		byte[] compressedBytes = BASE64_DECODER.decode(compressedString);
-
-		Inflater inflater = new Inflater();
-		inflater.setInput(compressedBytes);
-
-		ByteArrayOutputStream outputStream = new ByteArrayOutputStream(compressedBytes.length);
-		byte[] buffer = new byte[1024];
-
-		try {
-			while (!inflater.finished()) {
-				int count = inflater.inflate(buffer);
-				outputStream.write(buffer, 0, count);
-			}
-			try {
-				outputStream.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		} catch (DataFormatException e) {
-			e.printStackTrace();
-		}
-
-		inflater.end();
-
-		byte[] decompressedData = outputStream.toByteArray();
-
-		return new String(decompressedData, StandardCharsets.UTF_8);
-	}
-
-	public boolean onHypixel() {
-		return "hypixel.net".equals(mcInstance.getCurrentServerData().serverIP);
-	}
-
-	public void setWindowTitle() {
-		Display.setTitle("Jojo Grinder - " + mcInstance.thePlayer.getName());
+	public double timeSinWave(double div) { // little odd
+		double num = System.currentTimeMillis() / div * 100.0D;
+		num %= 360.0D;
+		num = Math.toRadians(num);
+		num = Math.sin(num);
+		return num;
 	}
 
 }
