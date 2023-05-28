@@ -254,7 +254,7 @@ public class GrindBot {
 
 			if (curFps < minimumFps) {
 				goAfk();
-				apiMessage = "fps too low";
+				apiMessage = "FPS too low!";
 				return;
 			}
 			
@@ -267,7 +267,7 @@ public class GrindBot {
 
 				if (Math.floor(timeSinceReceivedApiResponse / 50) % 20 == 0) {
 					goAfk();
-					String issueStr = "too long since successful api response: " + Math.min(999999, timeSinceReceivedApiResponse) + "ms. last api ping: " + apiLastPing + "ms. last api time: " + apiLastTotalProcessingTime + " ms.";
+					String issueStr = "Too long since successful api response: " + Math.min(999999, timeSinceReceivedApiResponse) + "ms. (last api ping: " + apiLastPing + "ms. last api time: " + apiLastTotalProcessingTime + " ms.)";
 					apiMessage = issueStr;
 					LOGGER.warn(issueStr);
 				}
@@ -279,7 +279,7 @@ public class GrindBot {
 				double[] curTargetPos = getPlayerPos(curTargetName);
 				
 				if (curTargetPos[1] > mcInstance.thePlayer.posY + 4 && nextTargetNames.length > 0) {
-					LOGGER.debug("switching to next target " + nextTargetNames[0] + " because Y of " + curTargetPos[1] + " too high");
+					LOGGER.debug("Switching to next target " + nextTargetNames[0] + " because target Y of " + curTargetPos[1] + " is too high");
 					
 					curTargetName = nextTargetNames[0];
 					nextTargetNames = Arrays.copyOfRange(nextTargetNames, 1, nextTargetNames.length);
@@ -326,19 +326,19 @@ public class GrindBot {
 		Path file = Paths.get("key.txt");
 
 		if (!Files.isRegularFile(file)) {
-			apiMessage = "no key file found";
+			apiMessage = "No key file found!";
 			return;
 		}
 
 		try {
-			LOGGER.debug("set key");
+			LOGGER.debug("Loaded key from file");
 
 			GrinderAPI.setApiKey(String.join("\n", Files.readAllLines(file)));
 		} catch (IOException exception) {
-			LOGGER.error("reading key error");
+			LOGGER.error("Error reading key from file " + file + "\"!");
 			exception.printStackTrace();
 
-			apiMessage = "error reading key";
+			apiMessage = "Error reading key from file!";
 		}
 	}
 	
@@ -352,8 +352,6 @@ public class GrindBot {
 		if (!GrinderAPI.hasApiKey()) {
 			return;
 		}
-
-		LOGGER.debug("getting api url: " + GrinderAPI.API_URL);
 		
 		preApiProcessingTime = System.currentTimeMillis();
 		
@@ -368,13 +366,15 @@ public class GrindBot {
 		String finalBuiltInfo = Utils.compressString(builtInfo) + "xyzcompressed";
 		
 		// done, set client info header
-		LOGGER.debug("api info header length is " + finalBuiltInfo.length() + " chars");
+		LOGGER.debug("API info header length is " + finalBuiltInfo.length() + " characters!");
 		
 		// do request
 		
 		ticksPerApiCall = 20;
 		
 		long preApiGotTime = System.currentTimeMillis();
+
+		LOGGER.debug("Sending payload to " + GrinderAPI.API_URL);
 
 		ForkJoinPool.commonPool().execute(() -> {
 			HttpGet get = new HttpGet(GrinderAPI.API_URL);
@@ -395,17 +395,17 @@ public class GrindBot {
 				apiResponse = IOUtils.toString(response.getEntity().getContent());
 			} catch (IOException e) {
 				e.printStackTrace();
-				apiMessage = "api call fatal error";
+				apiMessage = "Fatal error while sending API payload!";
 				return;
 			}
 
 			apiLastPing = (int)(System.currentTimeMillis() - preApiGotTime);
 
-			LOGGER.debug("api ping was " + apiLastPing + "ms");
+			LOGGER.debug("API ping was " + apiLastPing + "ms");
 
 			if (apiLastPing > 1000) {
-				LOGGER.warn("api ping too high");
-				apiMessage = "api ping too high - " + apiLastPing + "ms";
+				LOGGER.warn("API ping too high!");
+				apiMessage = "API ping too high (" + apiLastPing + "ms)!";
 				return;
 			}
 
@@ -413,7 +413,7 @@ public class GrindBot {
 				ingestApiResponse(apiResponse);
 			} catch (Exception exception) {
 				exception.printStackTrace();
-				apiMessage = "errored on ingesting api response";
+				apiMessage = "Error while ingesting API response!";
 			}
 		});
 	}
@@ -423,22 +423,19 @@ public class GrindBot {
 		// check if the apiText starts with the compression flag
 
 		if (!apiText.startsWith("xyzcompressed")) {
-			String errorStr = "api response - " + apiText;
+			String errorStr = "Invalid API response (was not indicated as compressed): " + apiText;
 			LOGGER.error(errorStr);
 			apiMessage = errorStr;
 			return;
 		}
 
 		// remove the compression flag from the apiText before decompression
-
 		apiText = apiText.substring("xyzcompressed".length());
 
 		// now decompress
-
 		apiText = Utils.decompressString(apiText);
 
 		// deal with given instructions
-
 		String[] apiStringSplit = apiText.split("##!##");
 		
 		if (!apiStringSplit[0].equals("null")) {
@@ -465,8 +462,8 @@ public class GrindBot {
 			String[] chances = apiStringSplit[3].split(":::");
 			
 			if (chances.length != 15) {
-				LOGGER.error("key chances string split wrong length");
-				apiMessage = "api key chances failed";
+				LOGGER.error("Key chances array from server had an incorrect length!");
+				apiMessage = "Key chances from API failed!";
 				return;
 			}
 
@@ -510,7 +507,7 @@ public class GrindBot {
 			
 			int containerItemToPress = Integer.parseInt(apiStringSplit[5]);
 
-			LOGGER.debug("pressing container item " + containerItemToPress);
+			LOGGER.debug("Pressing container slot " + containerItemToPress);
 			
 			mcInstance.playerController.windowClick(mcInstance.thePlayer.openContainer.windowId, containerItemToPress, 1, 2, mcInstance.thePlayer);
 		}
@@ -520,7 +517,7 @@ public class GrindBot {
 			
 			int inventoryItemToDrop = Integer.parseInt(apiStringSplit[6]);
 
-			LOGGER.debug("dropping inventory item " + inventoryItemToDrop);
+			LOGGER.debug("Dropping item at slot " + inventoryItemToDrop);
 			
 			mcInstance.playerController.windowClick(mcInstance.thePlayer.openContainer.windowId, inventoryItemToDrop, 1, 4, mcInstance.thePlayer);
 		}
@@ -530,7 +527,7 @@ public class GrindBot {
 			
 			int inventoryItemToMove = Integer.parseInt(apiStringSplit[7]);
 
-			LOGGER.debug("moving inventory item " + inventoryItemToMove);
+			LOGGER.debug("Moving inventory item at slot " + inventoryItemToMove);
 			
 			mcInstance.playerController.windowClick(mcInstance.thePlayer.openContainer.windowId, inventoryItemToMove, 1, 1, mcInstance.thePlayer);
 		}
@@ -586,7 +583,7 @@ public class GrindBot {
 		lastReceivedApiResponse = System.currentTimeMillis();
 		apiLastTotalProcessingTime = (int) (System.currentTimeMillis() - preApiProcessingTime);
 
-		LOGGER.debug("total processing time was " + apiLastTotalProcessingTime + "ms");
+		LOGGER.debug("Total API ingestion time was " + apiLastTotalProcessingTime + "ms");
 	}
 
 	public void goAfk() {
@@ -601,7 +598,7 @@ public class GrindBot {
 		if (player != null) {
 			return new double[] {player.getPosition().getX(), player.getPosition().getY(), player.getPosition().getZ()};
 		}  else {
-			LOGGER.debug("could not find player");
+			LOGGER.debug("Could not find a player of the name " + playerName);
 			return new double[] {0, 999, 0};
 		}
 	}

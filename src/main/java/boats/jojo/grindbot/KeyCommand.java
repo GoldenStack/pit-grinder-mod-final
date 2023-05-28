@@ -54,7 +54,7 @@ public class KeyCommand implements ICommand {
 
 		GrinderAPI.setApiKey(args[0]);
 		Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentText("Set key successfully!"));
-		GrindBot.LOGGER.debug("set key from command");
+		GrindBot.LOGGER.debug("Set key from command");
 		
 		try {
 			FileWriter myWriter = new FileWriter("key.txt");
@@ -62,7 +62,7 @@ public class KeyCommand implements ICommand {
 			myWriter.close();
 		} catch (IOException e) {
 			Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentText("Writing key to file failed..."));
-			GrindBot.LOGGER.error("writing key file failed");
+			GrindBot.LOGGER.error("Writing key file failed!");
 			e.printStackTrace();
 		}
 	}
