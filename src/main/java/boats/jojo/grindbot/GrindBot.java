@@ -11,6 +11,7 @@ import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 import java.io.ByteArrayOutputStream;
 
+import net.minecraft.block.Block;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
@@ -22,6 +23,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.jetbrains.annotations.NotNull;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.Display;
 
@@ -391,31 +393,24 @@ public class GrindBot {
 		StringJoiner info = new StringJoiner(dataSeparator);
 
 		info.add(apiKey); // Auth key
-
 		info.add(player.getName()); // Client username
-
 		info.add(player.getGameProfile().getId().toString()); // Client UUID - will be null when in offline mode, but Hypixel is online
 
-		{ // Client position and rotation
-			String positionAnglesStr = player.posX + ":::" + player.posY + ":::" + player.posZ + ":::" +
-							player.rotationPitch + ":::" + player.rotationYaw + ":::";
-
-			info.add(positionAnglesStr);
-		}
+		// Client position and rotation
+		info.add(join(":::", player.posX, player.posY, player.posZ, player.rotationPitch, player.rotationYaw));
 
 		{ // Client inventory
-			String invStr = "";
-			String invStrSeparator = "!!!";
+			StringJoiner invStr = new StringJoiner("!!!");
 
 			for (ItemStack item : player.inventoryContainer.getInventory()) {
 				if (item == null) {
-					invStr += "air" + ":::" + 0 + invStrSeparator;
+					invStr.add(join(":::", "air", 0));
 				} else {
-					invStr += item.getItem().getRegistryName().split(":")[1] + ":::" + item.stackSize + invStrSeparator;
+					invStr.add(join(":::", item.getItem().delegate.getResourceName().getResourcePath(), item.stackSize));
 				}
 			}
 
-			info.add(invStr);
+			info.add(invStr.toString());
 		}
 
 		{ // Players
@@ -424,102 +419,77 @@ public class GrindBot {
 					.limit(128)
 					.collect(Collectors.toList());
 
-			// format:
-			// !!!username:::x:::y:::z:::health:::armor!!!
-
-			String playersStr = "";
-			String playerSeparator = "!!!";
+			StringJoiner playersStr = new StringJoiner("!!!");
 
 			for (EntityPlayer entityPlayer : playerList) {
-				String intraPlayerSeparator = ":::";
+				BlockPos block = entityPlayer.getPosition();
 
-				BlockPos curPos = entityPlayer.getPosition();
-
-				String curPlayerStr = "";
-				curPlayerStr += entityPlayer.getName() + intraPlayerSeparator;
-				curPlayerStr += (double) curPos.getX() + intraPlayerSeparator;
-				curPlayerStr += (double) curPos.getY() + intraPlayerSeparator;
-				curPlayerStr += (double) curPos.getZ() + intraPlayerSeparator;
-				curPlayerStr += entityPlayer.getHealth() + intraPlayerSeparator;
-				curPlayerStr += entityPlayer.getTotalArmorValue() + intraPlayerSeparator;
-
-				playersStr += curPlayerStr + playerSeparator;
+				playersStr.add(join(":::", entityPlayer.getName(), block.getX(), block.getY(), block.getZ(), entityPlayer.getHealth(), entityPlayer.getTotalArmorValue()));
 			}
 
-			info.add(playersStr);
+			info.add(playersStr.toString());
 		}
 
 		{ // Middle block
-			String middleBlockname = "null";
-			try {
-				middleBlockname = mcInstance.theWorld.getBlockState(new BlockPos(0, (int) mcInstance.thePlayer.posY - 1, 0)).getBlock().getRegistryName().split(":")[1];
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+			Block middleBlock = mcInstance.theWorld.getBlockState(new BlockPos(0, (int) mcInstance.thePlayer.posY - 1, 0)).getBlock();
+			String blockName = middleBlock.delegate.getResourceName().getResourcePath();
 
-			info.add(middleBlockname);
+			info.add(blockName);
 		}
 
 		{ // Last chat message
 			String chatMsgSeparator = "!#!";
-			String chatMsgsStr = "";
+
+			StringJoiner chatMessages = new StringJoiner(chatMsgSeparator);
 
 			for (int i = 0; i < Math.min(32, chatMsgs.size()); i++) {
-				chatMsgsStr += chatMsgs.get(i).replaceAll(dataSeparator, "").replaceAll(chatMsgSeparator, "") + chatMsgSeparator;
+				chatMessages.add(chatMsgs.get(i).replaceAll(dataSeparator, "").replaceAll(chatMsgSeparator, ""));
 			}
 
-			chatMsgs.clear();
+			info.add(chatMessages.toString());
 
-			info.add(chatMsgsStr);
+			chatMsgs.clear();
 		}
 
 		{ // Container items
-			String containerStr = "null";
-
 			List<ItemStack> containerItems = mcInstance.thePlayer.openContainer.getInventory();
 
-			if (containerItems.size() > 46) { // check if a container is open (definitely a better way to do that)
-				containerStr = "";
-				String containerStrSeparator = "!!!";
+			if (containerItems.size() <= 46) { // exit if a container is open (definitely a better way to do that)
+				info.add("null");
+			} else {
+				StringJoiner items = new StringJoiner("!!!");
+
 				for (int i = 0; i < containerItems.size() - 36; i++) { // minus 36 to cut off inventory
-					ItemStack curItem = containerItems.get(i);
+					ItemStack item = containerItems.get(i);
 
-					String curItemName = "air";
-					String curItemDisplayName = "air";
-					int curItemStackSize = 0;
-
-					if (curItem != null) {
-						curItemName = curItem.getItem().getRegistryName().split(":")[1];
-						curItemStackSize = curItem.stackSize;
-						curItemDisplayName = curItem.getDisplayName();
+					if (item == null) {
+						items.add(join(":::", "air", "air", 0));
+					} else {
+						items.add(join(":::", item.getItem().delegate.getResourceName().getResourcePath(), item.stackSize, item.getDisplayName()));
 					}
-
-					containerStr += curItemName + ":::" + curItemDisplayName + ":::" + curItemStackSize + containerStrSeparator;
 				}
-			}
 
-			info.add(containerStr);
+				info.add(items.toString());
+			}
 		}
 
 		{ // Dropped items
-			String droppedItemsStr = "";
-			String droppedItemsSeparator = "!!!";
+			StringJoiner droppedItemsStr = new StringJoiner("!!!");
 
-			List<EntityItem> droppedItems = mcInstance.theWorld.getEntitiesWithinAABB(EntityItem.class, new AxisAlignedBB(new BlockPos(mcInstance.thePlayer.posX - 32, mcInstance.thePlayer.posY - 4, mcInstance.thePlayer.posZ - 32), new BlockPos(mcInstance.thePlayer.posX + 32, mcInstance.thePlayer.posY + 32, mcInstance.thePlayer.posZ + 32)));
+			AxisAlignedBB box = new AxisAlignedBB(player.getPosition(), player.getPosition()).expand(32, 32, 32);
+			List<EntityItem> droppedItems = mcInstance.theWorld.getEntitiesWithinAABB(EntityItem.class, box);
 
 			for (int i = 0; i < Math.min(128, droppedItems.size()); i++) {
 				EntityItem curItem = droppedItems.get(i);
 
-				String curItemName = curItem.getEntityItem().getItem().getRegistryName().split(":")[1];
+				String curItemName = curItem.getEntityItem().getItem().delegate.getResourceName().getResourcePath();
 
-				double curItemPositionX = curItem.getPosition().getX();
-				double curItemPositionY = curItem.getPosition().getY();
-				double curItemPositionZ = curItem.getPosition().getZ();
+				BlockPos itemPos = curItem.getPosition();
 
-				droppedItemsStr += curItemName + ":::" + curItemPositionX + ":::" + curItemPositionY + ":::" + curItemPositionZ + droppedItemsSeparator;
+				droppedItemsStr.add(join(":::", curItemName, itemPos.getX(), itemPos.getY(), itemPos.getZ()));
 			}
 
-			info.add(droppedItemsStr);
+			info.add(droppedItemsStr.toString());
 		}
 		
 		// Important chat message
@@ -530,21 +500,18 @@ public class GrindBot {
 		info.add(mcInstance.currentScreen == null ? "null" : mcInstance.currentScreen.getClass().toString());
 
 		{ // Villager positions
-			String villagersStr = "";
-			String villagersSeparator = "!!!";
+			StringJoiner villagersStr = new StringJoiner("!!!");
 
 			List<Entity> villagerEntities = mcInstance.theWorld.getLoadedEntityList()
 					.stream().filter(entity -> entity.getClass().equals(EntityVillager.class)).collect(Collectors.toList());
 
 			for (int i = 0; i < Math.min(8, villagerEntities.size()); i++) {
-				Entity villager = villagerEntities.get(i);
+				BlockPos villagerPos = villagerEntities.get(i).getPosition();
 
-				villagersStr += (double) villager.getPosition().getX() + ":::" +
-						(double) villager.getPosition().getY() + ":::" +
-						(double) villager.getPosition().getZ() + villagersSeparator;
+				villagersStr.add(join(":::", villagerPos.getX(), villagerPos.getY(), villagerPos.getZ()));
 			}
 
-			info.add(villagersStr);
+			info.add(villagersStr.toString());
 		}
 
 		info.add(String.valueOf(player.getHealth())); // Client health
@@ -556,13 +523,13 @@ public class GrindBot {
 		info.add(modContainer == null ? null : modContainer.getVersion());
 
 		{ // Blocks proximity player
-			String proximityBlocksStr = "";
+			StringBuilder proximityBlocksStr = new StringBuilder();
 
 			int proximityBlocksHorizontalRange = 8;
 			int proximityBlocksVerticalRange = 2;
-			int playerPosX = (int) mcInstance.thePlayer.posX;
-			int playerPosY = (int) mcInstance.thePlayer.posY;
-			int playerPosZ = (int) mcInstance.thePlayer.posZ;
+			int playerPosX = (int) player.posX;
+			int playerPosY = (int) player.posY;
+			int playerPosZ = (int) player.posZ;
 
 			for (int x = playerPosX - proximityBlocksHorizontalRange; x <= playerPosX + proximityBlocksHorizontalRange; x++) {
 				for (int y = playerPosY - proximityBlocksVerticalRange; y <= playerPosY + proximityBlocksVerticalRange; y++) {
@@ -586,16 +553,16 @@ public class GrindBot {
 							blockChar = blockChars.getOrDefault(blockName, '.');
 						} catch (Exception e) {
 							e.printStackTrace();
-							proximityBlocksStr += '.';
+							proximityBlocksStr.append('.');
 							continue;
 						}
 
-						proximityBlocksStr += blockChar;
+						proximityBlocksStr.append(blockChar);
 					}
 				}
 			}
 
-			info.add(proximityBlocksStr);
+			info.add(proximityBlocksStr.toString());
 		}
 
 		info.add(String.valueOf(apiLastPing)); // Ping
@@ -684,8 +651,7 @@ public class GrindBot {
 			nextTargetNames = apiStringSplit[0].split(":::");
 			curTargetName = nextTargetNames[0];
 			nextTargetNames = Arrays.copyOfRange(nextTargetNames, 1, nextTargetNames.length);
-		}
-		else {
+		} else {
 			curTargetName = "null";
 			nextTargetNames = null;
 		}
@@ -1034,4 +1000,13 @@ public class GrindBot {
 	public void setWindowTitle() {
 		Display.setTitle("Jojo Grinder - " + mcInstance.thePlayer.getName());
 	}
+
+	public static String join(@NotNull CharSequence delimiter, @NotNull Object @NotNull ... objects) {
+		return String.join(delimiter, Arrays.stream(objects).map(Object::toString).toArray(CharSequence[]::new));
+	}
+
+	public static String join(@NotNull CharSequence delimiter, @NotNull Collection<@NotNull Object> objects) {
+		return String.join(delimiter, objects.stream().map(Object::toString).toArray(CharSequence[]::new));
+	}
+
 }
