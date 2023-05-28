@@ -54,7 +54,7 @@ public class KeyCommand implements ICommand {
 
 		GrinderAPI.setApiKey(args[0]);
 		Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentText("Set key successfully!"));
-		GrindBot.LOGGER.debug("set key from command to " + GrinderAPI.apiKey());
+		GrindBot.LOGGER.debug("set key from command");
 		
 		try {
 			FileWriter myWriter = new FileWriter("key.txt");
