@@ -15,7 +15,6 @@ import org.apache.http.impl.client.HttpClients;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.input.Keyboard;
 
-import java.util.concurrent.ForkJoinPool;
 import java.io.IOException;
 
 import net.minecraft.client.Minecraft;
@@ -358,7 +357,7 @@ public class GrindBot {
 
 		LOGGER.debug("Sending payload to " + GrinderAPI.API_URL);
 
-		ForkJoinPool.commonPool().execute(() -> {
+		Utils.runAsync(() -> {
 			HttpGet get = new HttpGet(GrinderAPI.API_URL);
 
 			int timeoutMs = 5000;

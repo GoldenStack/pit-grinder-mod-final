@@ -1,17 +1,23 @@
 package boats.jojo.grindbot;
 
 import net.minecraft.client.Minecraft;
+import org.jetbrains.annotations.NotNull;
 import org.lwjgl.opengl.Display;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.concurrent.ForkJoinPool;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
 public class Utils {
+
+    public static void runAsync(@NotNull Runnable runnable) {
+        ForkJoinPool.commonPool().execute(runnable);
+    }
 
     public static double range180(double rot) {
         rot = rot % 360;
