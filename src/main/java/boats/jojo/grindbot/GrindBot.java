@@ -107,30 +107,31 @@ public class GrindBot {
 
 	@SubscribeEvent
 	public void onKeyPress(InputEvent.KeyInputEvent event) {
-		long curTime = System.currentTimeMillis();
+		long time = System.currentTimeMillis();
 		
-		long toggledGrinderTimeDiff = curTime - lastToggledGrinder;
-		
-		if (toggledGrinderTimeDiff > 500 && org.lwjgl.input.Keyboard.isKeyDown(Keyboard.KEY_J)) {
+		long grinderToggleDelay = time - lastToggledGrinder;
+
+		// Toggle grinder when J is pressed, with a delay of 500ms
+		if (grinderToggleDelay > 500 && org.lwjgl.input.Keyboard.isKeyDown(Keyboard.KEY_J)) {
 			grinderEnabled = !grinderEnabled;
 			
-			if (grinderEnabled) { // newly enabled
-				initialFov = mcInstance.gameSettings.fovSetting;
+			if (grinderEnabled) { // If the grinder is now enabled
+				initialFov = mcInstance.gameSettings.fovSetting; // Store old FOV
 				chatMsgs.clear(); // reset list of chat messages to avoid picking up ones received earlier
 			} else { // newly disabled
 				Key.unpressAll();
-				mcInstance.gameSettings.fovSetting = initialFov;
+				mcInstance.gameSettings.fovSetting = initialFov; // Restore old FOV
 			}
 			
-			lastToggledGrinder = curTime;
+			lastToggledGrinder = time;
 		}
 		
-		long toggledAutoClickerTimeDiff = curTime - lastToggledAutoClicker;
+		long clickerToggleDelay = time - lastToggledAutoClicker;
 		
-		if (toggledAutoClickerTimeDiff > 500 && org.lwjgl.input.Keyboard.isKeyDown(Keyboard.KEY_K)) {
+		if (clickerToggleDelay > 500 && org.lwjgl.input.Keyboard.isKeyDown(Keyboard.KEY_K)) {
 			autoClickerEnabled = !autoClickerEnabled;
 			
-			lastToggledAutoClicker = curTime;
+			lastToggledAutoClicker = time;
 		}
 
 		Utils.setWindowTitle(); // putting this here is probably often enough idk can put it elsewhere later
@@ -144,12 +145,10 @@ public class GrindBot {
 				return;
 			}
 
+			// Interpolate mouse movement every frame for smooth movement
 			interpolateMousePosition();
 
-			int screenWidth = event.resolution.getScaledWidth();
-			int screenHeight = event.resolution.getScaledHeight();
-
-			String[] infoToDraw = {
+			String[] infoLines = {
 				"Username: " + mcInstance.thePlayer.getName(),
 				"FPS: " + (int) curFps,
 				"API time: " + apiLastTotalProcessingTime + "ms",
@@ -160,9 +159,12 @@ public class GrindBot {
 				"API msg: " + apiMessage,
 			};
 
-			for(int i = 0; i < infoToDraw.length; i++) {
-				drawText(infoToDraw[i], 4, 4 + i * 10, 0xFFFFFF);
+			for(int i = 0; i < infoLines.length; i++) {
+				drawText(infoLines[i], 4, 4 + i * 10, 0xFFFFFF);
 			}
+
+			int screenWidth = event.resolution.getScaledWidth();
+			int screenHeight = event.resolution.getScaledHeight();
 
 			int color = 0xFFFFFF;
 			int keyboardPosX = screenWidth - 77;
@@ -237,22 +239,24 @@ public class GrindBot {
 	
 	@SubscribeEvent
 	public void onChat(ClientChatReceivedEvent event) {
-		String curChatRaw = StringUtils.stripControlCodes(event.message.getUnformattedText());
+		String message = StringUtils.stripControlCodes(event.message.getUnformattedText());
 
-		// idk what the first thing is for `!curChatRaw.startsWith(":")`
-		if (!curChatRaw.startsWith(":") && (curChatRaw.startsWith("MAJOR EVENT!") || curChatRaw.startsWith("BOUNTY CLAIMED!") || curChatRaw.startsWith("NIGHT QUEST!") || curChatRaw.startsWith("QUICK MATHS!") || curChatRaw.startsWith("DONE!") || curChatRaw.startsWith("MINOR EVENT!") || curChatRaw.startsWith("MYSTIC ITEM!") || curChatRaw.startsWith("PIT LEVEL UP!") || curChatRaw.startsWith("A player has"))) {
-			importantChatMsg = curChatRaw;
+		List<String> importantPrefixes = Arrays.asList("MAJOR EVENT!", "MINOR EVENT!", "BOUNTY CLAIMED!", "NIGHT QUEST!",
+				"QUICK MATHS!", "DONE!", "MYSTIC ITEM!", "PIT LEVEL UP!", "A player has");
+
+		// idk what `!message.startsWith(":")` is for
+		if (!message.startsWith(":") && importantPrefixes.stream().anyMatch(message::startsWith)) {
+			importantChatMsg = message;
 		}
 
 		if (grinderEnabled) {
-			chatMsgs.add(curChatRaw);
+			chatMsgs.add(message);
 		}
 	}
 	
 	public void doBotTick() {
 		try {
-			// go afk if fps too low (usually when world is loading)
-
+			// Go AFK if fps too low (usually when world is loading)
 			if (curFps < minimumFps) {
 				goAfk();
 				apiMessage = "FPS too low!";
@@ -260,15 +264,15 @@ public class GrindBot {
 			}
 			
 			// main things
-			
-			long timeSinceReceivedApiResponse = System.currentTimeMillis() - lastReceivedApiResponse;
-			
-			if (timeSinceReceivedApiResponse > 3000) {
+
+			// Exit if too long since an API response
+			long apiResponseDelay = System.currentTimeMillis() - lastReceivedApiResponse;
+			if (apiResponseDelay > 3000) {
 				Key.unpressAll();
 
-				if (Math.floor(timeSinceReceivedApiResponse / 50) % 20 == 0) {
+				if (Math.floor(apiResponseDelay / 50.0) % 20 == 0) {
 					goAfk();
-					String issueStr = "Too long since successful api response: " + Math.min(999999, timeSinceReceivedApiResponse) + "ms. (last api ping: " + apiLastPing + "ms. last api time: " + apiLastTotalProcessingTime + " ms.)";
+					String issueStr = "Too long since successful api response: " + Math.min(999999, apiResponseDelay) + "ms. (last api ping: " + apiLastPing + "ms. last api time: " + apiLastTotalProcessingTime + " ms.)";
 					apiMessage = issueStr;
 					LOGGER.warn(issueStr);
 				}
