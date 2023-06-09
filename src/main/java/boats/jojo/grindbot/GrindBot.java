@@ -2,6 +2,7 @@ package boats.jojo.grindbot;
 
 import java.util.*;
 
+import net.minecraft.util.BlockPos;
 import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import org.apache.commons.io.IOUtils;
@@ -42,9 +43,9 @@ public class GrindBot {
 	Minecraft mcInstance = Minecraft.getMinecraft();
 
 	float curFps = 0;
-	
-	double mouseTargetX, mouseTargetY, mouseTargetZ;
-	
+
+	BlockPos mouseTarget = null;
+
 	boolean attackedThisTick = false;
 
 	String currentTarget = null;
@@ -281,22 +282,20 @@ public class GrindBot {
 			}
 
 			if (currentTarget != null) {
-				double[] curTargetPos = getPlayerPos(currentTarget);
+				BlockPos curTargetPos = getPlayerPos(currentTarget);
 
-				if (curTargetPos[1] > mcInstance.thePlayer.posY + 4 && !nextTargets.isEmpty()) {
-					LOGGER.debug("Switching to next target " + nextTargets.get(0) + " because target Y of " + curTargetPos[1] + " is too high");
+				if (curTargetPos.getY() > mcInstance.thePlayer.posY + 4 && !nextTargets.isEmpty()) {
+					LOGGER.debug("Switching to next target " + nextTargets.get(0) + " because target Y of " + curTargetPos.getY() + " is too high");
 
 					currentTarget = nextTargets.remove(0);
 					curTargetPos = getPlayerPos(currentTarget);
 				}
-				
-				mouseTargetX = curTargetPos[0];
-				mouseTargetY = curTargetPos[1] + 1;
-				mouseTargetZ = curTargetPos[2];
+
+				mouseTarget = curTargetPos.add(0, 1, 0);
 			}
 			
 			if (mcInstance.currentScreen == null) {
-				if (mouseTargetX != 0 || mouseTargetY != 0 || mouseTargetZ != 0) { // dumb null check
+				if (mouseTarget != null) { // dumb null check
 					mouseMove();
 				}
 				Key.doMovement(this);
@@ -308,10 +307,8 @@ public class GrindBot {
 
 				// in spawn but has target (bad)
 				currentTarget = null;
-				
-				mouseTargetX = 0;
-				mouseTargetY = curSpawnLevel - 4;
-				mouseTargetZ = 0;
+
+				mouseTarget = new BlockPos(0, curSpawnLevel - 4, 0);
 
 				Key.unpressAll();
 
@@ -472,16 +469,15 @@ public class GrindBot {
 			
 			keyAttackChance = Double.parseDouble(chances[14]);
 		}
-		
-		mouseTargetX = 0;
-		mouseTargetY = 0;
-		mouseTargetZ = 0;
+
+		mouseTarget = null;
 		if (!apiStringSplit[4].equals("null")) {
 			String[] mouseTargetStringSplit = apiStringSplit[4].split(":::");
 			
-			mouseTargetX = Double.parseDouble(mouseTargetStringSplit[0]);
-			mouseTargetY = Double.parseDouble(mouseTargetStringSplit[1]);
-			mouseTargetZ = Double.parseDouble(mouseTargetStringSplit[2]);
+			double x = Double.parseDouble(mouseTargetStringSplit[0]);
+			double y = Double.parseDouble(mouseTargetStringSplit[1]);
+			double z = Double.parseDouble(mouseTargetStringSplit[2]);
+			mouseTarget = new BlockPos(x, y, z);
 		}
 		
 		if (!apiStringSplit[5].equals("null")) {
@@ -574,14 +570,14 @@ public class GrindBot {
 		Key.unpressAll();
 		Key.pressChatKeyIfNoGuiOpen();
 	}
-	
-	public double[] getPlayerPos(String playerName) { // weird
+
+	public BlockPos getPlayerPos(String playerName) { // weird
 		EntityPlayer player = mcInstance.theWorld.getPlayerEntityByName(playerName);
 		if (player != null) {
-			return new double[] {player.getPosition().getX(), player.getPosition().getY(), player.getPosition().getZ()};
+			return player.getPosition();
 		}  else {
 			LOGGER.debug("Could not find a player of the name " + playerName);
-			return new double[] {0, 999, 0};
+			return new BlockPos(0, 999, 0);
 		}
 	}
 	
@@ -623,9 +619,9 @@ public class GrindBot {
 		double headHeight = 1.62;
 
 		// old af math probably stupid
-		double targetRotY = Utils.fixRotY(360 - Math.toDegrees(Math.atan2(mouseTargetX - x, mouseTargetZ - z)));
+		double targetRotY = Utils.fixRotY(360 - Math.toDegrees(Math.atan2(mouseTarget.getX() - x, mouseTarget.getZ() - z)));
 		double targetRotX = -Math.toDegrees(Math.atan(
-				(mouseTargetY - y - headHeight) / Math.hypot(mouseTargetX - x, mouseTargetZ - z)
+				(mouseTarget.getY() - y - headHeight) / Math.hypot(mouseTarget.getX() - x, mouseTarget.getZ() - z)
 		));
 		
 		// add random waviness to target
