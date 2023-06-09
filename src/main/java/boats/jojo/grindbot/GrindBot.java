@@ -671,7 +671,7 @@ public class GrindBot {
 	}
 	
 	public boolean farFromMid() {
-		return mcInstance.thePlayer.posX > 32 || mcInstance.thePlayer.posZ > 32;
+		return Math.hypot(mcInstance.thePlayer.posX, mcInstance.thePlayer.posZ) > 32;
 	}
 
 	public double timeSinWave(double div) { // little odd
