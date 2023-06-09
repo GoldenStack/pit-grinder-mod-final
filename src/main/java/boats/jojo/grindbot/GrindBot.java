@@ -46,10 +46,10 @@ public class GrindBot {
 	double mouseTargetX, mouseTargetY, mouseTargetZ;
 	
 	boolean attackedThisTick = false;
-	
-	String curTargetName = "null";
-	String[] nextTargetNames = null;
-	
+
+	String currentTarget = null;
+	List<String> nextTargets = new ArrayList<>();
+
 	int minimumFps = 0;
 	
 	int ticksPerApiCall = 200;
@@ -280,16 +280,14 @@ public class GrindBot {
 				return;
 			}
 
-			if (!curTargetName.equals("null")) {
-				double[] curTargetPos = getPlayerPos(curTargetName);
-				
-				if (curTargetPos[1] > mcInstance.thePlayer.posY + 4 && nextTargetNames.length > 0) {
-					LOGGER.debug("Switching to next target " + nextTargetNames[0] + " because target Y of " + curTargetPos[1] + " is too high");
-					
-					curTargetName = nextTargetNames[0];
-					nextTargetNames = Arrays.copyOfRange(nextTargetNames, 1, nextTargetNames.length);
-					
-					curTargetPos = getPlayerPos(curTargetName);
+			if (currentTarget != null) {
+				double[] curTargetPos = getPlayerPos(currentTarget);
+
+				if (curTargetPos[1] > mcInstance.thePlayer.posY + 4 && !nextTargets.isEmpty()) {
+					LOGGER.debug("Switching to next target " + nextTargets.get(0) + " because target Y of " + curTargetPos[1] + " is too high");
+
+					currentTarget = nextTargets.remove(0);
+					curTargetPos = getPlayerPos(currentTarget);
 				}
 				
 				mouseTargetX = curTargetPos[0];
@@ -306,11 +304,10 @@ public class GrindBot {
 				Key.unpressAll();
 			}
 			
-			if (mcInstance.thePlayer.posY > curSpawnLevel - 4 && !curTargetName.equals("null") && !farFromMid()) {
+			if (mcInstance.thePlayer.posY > curSpawnLevel - 4 && currentTarget != null && !farFromMid()) {
 
 				// in spawn but has target (bad)
-
-				curTargetName = "null";
+				currentTarget = null;
 				
 				mouseTargetX = 0;
 				mouseTargetY = curSpawnLevel - 4;
@@ -422,14 +419,14 @@ public class GrindBot {
 
 		// deal with given instructions
 		String[] apiStringSplit = apiText.split("##!##");
-		
+
+		currentTarget = null;
+		nextTargets = new ArrayList<>();
 		if (!apiStringSplit[0].equals("null")) {
-			nextTargetNames = apiStringSplit[0].split(":::");
-			curTargetName = nextTargetNames[0];
-			nextTargetNames = Arrays.copyOfRange(nextTargetNames, 1, nextTargetNames.length);
-		} else {
-			curTargetName = "null";
-			nextTargetNames = null;
+			nextTargets = new ArrayList<>(Arrays.asList(apiStringSplit[0].split(":::")));
+			if (!nextTargets.isEmpty()) { // Apply next target
+				currentTarget = nextTargets.remove(0);
+			}
 		}
 		
 		if (!apiStringSplit[1].equals("null")) {
